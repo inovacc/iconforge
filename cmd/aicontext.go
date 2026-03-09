@@ -81,7 +81,9 @@ func printAIContextMarkdown(cmd *cobra.Command) error {
 
 	b.WriteString("# iconforge - AI Context\n\n")
 	b.WriteString("## Overview\n\n")
-	b.WriteString("iconforge is a CLI application\n\n")
+	b.WriteString("IconForge is a cross-platform application icon generator. Converts SVG to production-ready\n")
+	b.WriteString("ICO, ICNS, and PNG icons and embeds them into Go binaries, macOS .app bundles, Linux .desktop\n")
+	b.WriteString("entries, and Tauri/Electron/Wails/Fyne projects.\n\n")
 
 	// Global flags
 	var globalFlags []FlagDetail
@@ -126,11 +128,11 @@ func printAIContextMarkdown(cmd *cobra.Command) error {
 	b.WriteString("## Commands\n\n")
 	aiWriteCommandMarkdown(&b, rootCmd.Commands(), "")
 
-	// Categories — customize for your app
-	// TODO: customize for your app
 	categories := map[string][]string{
-		"Core":    {"version", "help"},
-		"Tooling": {"cmdtree", "aicontext"},
+		"Icon Generation": {"forge", "render"},
+		"Embedding":       {"embed"},
+		"Detection":       {"detect"},
+		"Info":            {"version", "cmdtree", "aicontext", "help"},
 	}
 
 	b.WriteString("## Command Categories\n\n")
@@ -142,15 +144,16 @@ func printAIContextMarkdown(cmd *cobra.Command) error {
 		b.WriteString("\n")
 	}
 
-	// Structure — customize for your app
-	// TODO: customize for your app
 	b.WriteString("## Project Structure\n\n")
 	b.WriteString("```\n")
 	structure := []string{
-		"cmd/           # CLI commands (Cobra wrappers)",
-		"internal/      # Private application code",
-		"pkg/           # Public reusable libraries",
-		"main.go        # Entry point",
+		"cmd/                # CLI commands (forge, render, embed, detect)",
+		"internal/svg/       # SVG rasterization (oksvg/rasterx)",
+		"internal/icon/      # ICO, ICNS, PNG encoders",
+		"internal/platform/  # Windows, macOS, Linux generators",
+		"internal/detect/    # Framework detection (Tauri, Electron, Wails, Fyne)",
+		"internal/generator/ # SVG icon generator",
+		"main.go             # Entry point",
 	}
 	for _, s := range structure {
 		_, _ = fmt.Fprintf(&b, "%s\n", s)
@@ -165,7 +168,7 @@ func printAIContextMarkdown(cmd *cobra.Command) error {
 func printAIContextCompact(cmd *cobra.Command) error {
 	var b strings.Builder
 
-	b.WriteString("# iconforge - iconforge is a CLI application\n\n")
+	b.WriteString("# iconforge - Cross-platform application icon generator\n\n")
 
 	// Global flags
 	var globalParts []string
@@ -201,7 +204,7 @@ func printAIContextJSON(cmd *cobra.Command) error {
 	doc := aiContextDoc{
 		Tool:        "iconforge",
 		Version:     "dev",
-		Description: "iconforge is a CLI application",
+		Description: "Cross-platform application icon generator — SVG to ICO, ICNS, PNG with Go binary embedding",
 	}
 
 	// Global flags
