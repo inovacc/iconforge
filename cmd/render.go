@@ -24,7 +24,7 @@ var renderCmd = &cobra.Command{
 	Long: `Rasterize an SVG file to PNG images at specified sizes.
 
 Examples:
-  iconforge render --svg icon.svg --sizes 256,128,64,48,32,16
+  iconforge render --svg icon.svg --sizes 512,256,128,64,48,32,16
   iconforge render --svg icon.svg -o build/png`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		sizes, err := parseSizes(renderSizesStr)
@@ -55,7 +55,7 @@ func init() {
 
 	renderCmd.Flags().StringVar(&renderSVGPath, "svg", "", "Path to source SVG file")
 	renderCmd.Flags().StringVarP(&renderOutputDir, "output", "o", "build/icons/png", "Output directory")
-	renderCmd.Flags().StringVar(&renderSizesStr, "sizes", "256,128,64,48,32,16", "Comma-separated icon sizes")
+	renderCmd.Flags().StringVar(&renderSizesStr, "sizes", "512,256,128,64,48,32,16", "Comma-separated icon sizes")
 
 	_ = renderCmd.MarkFlagRequired("svg")
 }

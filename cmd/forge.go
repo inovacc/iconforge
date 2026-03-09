@@ -35,7 +35,7 @@ var (
 )
 
 // Standard icon sizes for export
-var standardSizes = []int{256, 128, 64, 48, 32, 16}
+var standardSizes = []int{512, 256, 128, 64, 48, 32, 16}
 
 // Extended sizes including retina/high-res
 var extendedSizes = []int{1024, 512, 256, 128, 64, 48, 32, 16}

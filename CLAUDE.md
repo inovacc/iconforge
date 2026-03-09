@@ -64,7 +64,7 @@ docs/                   # Documentation
 
 ## Icon Sizes
 
-Standard: 256, 128, 64, 48, 32, 16
+Standard: 512, 256, 128, 64, 48, 32, 16
 Extended (with retina): 1024, 512, 256, 128, 64, 48, 32, 16
 
 ## Conventions

@@ -6,7 +6,7 @@ Cross-platform application icon generator — converts SVG to production-ready i
 
 ## Features
 
-- SVG to multi-resolution PNG rasterization (256, 128, 64, 48, 32, 16)
+- SVG to multi-resolution PNG rasterization (512, 256, 128, 64, 48, 32, 16)
 - Windows ICO generation with `.syso` resource embedding (goversioninfo/rsrc compatible)
 - macOS ICNS generation with `.app` bundle support
 - Linux `.desktop` entry generation with freedesktop icon installation

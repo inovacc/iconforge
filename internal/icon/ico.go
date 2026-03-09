@@ -30,7 +30,7 @@ type icoDirEntry struct {
 }
 
 // WriteICO creates a Windows ICO file from multiple images.
-// Images should be provided at different sizes (256, 128, 64, 48, 32, 16).
+// Images should be provided at different sizes (512, 256, 128, 64, 48, 32, 16).
 // The 256px image is stored as PNG (standard for modern ICO files).
 func WriteICO(path string, images map[int]*image.RGBA) error {
 	f, err := os.Create(path)
