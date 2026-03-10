@@ -17,12 +17,7 @@ _No P1 items._
 ### P2 - This Quarter
 
 - **Priority:** P2
-- **Description:** Increase icon/platform test coverage to 80%+ (currently 69%/73.3%)
-- **Effort:** Medium
-- **Category:** Tech Debt
-
-- **Priority:** P2
-- **Description:** Add more cmd/ integration tests (currently 27.9%)
+- **Description:** Add more cmd/ integration tests (currently 26.4%)
 - **Effort:** Medium
 - **Category:** Tech Debt
 

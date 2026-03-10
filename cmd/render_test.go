@@ -146,3 +146,116 @@ func TestRender_NoSource(t *testing.T) {
 		t.Errorf("error = %q, want %q", err.Error(), expected)
 	}
 }
+
+func TestParseSizes_Valid(t *testing.T) {
+	tests := []struct {
+		input string
+		want  []int
+	}{
+		{"512,256,128", []int{512, 256, 128}},
+		{"64", []int{64}},
+		{"16, 32, 48", []int{16, 32, 48}},
+		{"1024", []int{1024}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got, err := parseSizes(tt.input)
+			if err != nil {
+				t.Fatalf("parseSizes(%q) returned error: %v", tt.input, err)
+			}
+			if len(got) != len(tt.want) {
+				t.Fatalf("parseSizes(%q) returned %d sizes, want %d", tt.input, len(got), len(tt.want))
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("parseSizes(%q)[%d] = %d, want %d", tt.input, i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestParseSizes_Invalid(t *testing.T) {
+	tests := []struct {
+		input   string
+		wantErr string
+	}{
+		{"abc", "invalid size"},
+		{"0", "out of range"},
+		{"-1", "out of range"},
+		{"3000", "out of range"},
+		{"512,abc,128", "invalid size"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			_, err := parseSizes(tt.input)
+			if err == nil {
+				t.Fatalf("parseSizes(%q) expected error, got nil", tt.input)
+			}
+			if !containsStr(err.Error(), tt.wantErr) {
+				t.Errorf("parseSizes(%q) error = %q, want containing %q", tt.input, err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestAppName_Explicit(t *testing.T) {
+	got := AppName("myapp")
+	if got != "myapp" {
+		t.Errorf("AppName('myapp') = %q, want 'myapp'", got)
+	}
+}
+
+func TestAppName_Empty(t *testing.T) {
+	got := AppName("")
+	if got == "" {
+		t.Error("AppName('') should not return empty string")
+	}
+}
+
+func TestRender_InvalidSizes(t *testing.T) {
+	resetRenderFlags(t)
+	tmpDir := t.TempDir()
+	svgDir := t.TempDir()
+	svgPath := writeTestSVG(t, svgDir)
+
+	renderSVGPath = svgPath
+	renderOutputDir = tmpDir
+	renderSizesStr = "abc"
+
+	_, err := executeRender(t)
+	if err == nil {
+		t.Fatal("expected error for invalid sizes, got nil")
+	}
+	if !containsStr(err.Error(), "invalid size") {
+		t.Errorf("expected 'invalid size' error, got: %v", err)
+	}
+}
+
+func TestRender_InvalidSVGPath(t *testing.T) {
+	resetRenderFlags(t)
+	tmpDir := t.TempDir()
+
+	renderSVGPath = filepath.Join(tmpDir, "nonexistent.svg")
+	renderOutputDir = tmpDir
+
+	_, err := executeRender(t)
+	if err == nil {
+		t.Fatal("expected error for nonexistent SVG, got nil")
+	}
+}
+
+func TestRender_InvalidPNGPath(t *testing.T) {
+	resetRenderFlags(t)
+	tmpDir := t.TempDir()
+
+	renderPNGPath = filepath.Join(tmpDir, "nonexistent.png")
+	renderOutputDir = tmpDir
+
+	_, err := executeRender(t)
+	if err == nil {
+		t.Fatal("expected error for nonexistent PNG, got nil")
+	}
+}

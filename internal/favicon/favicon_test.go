@@ -2,6 +2,7 @@ package favicon
 
 import (
 	"encoding/json"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -198,6 +199,26 @@ func TestGenerateFavicons_ResizesFromLargest(t *testing.T) {
 		if bounds.Dx() != wantSize || bounds.Dy() != wantSize {
 			t.Errorf("%s size = %dx%d, want %dx%d",
 				filename, bounds.Dx(), bounds.Dy(), wantSize, wantSize)
+		}
+	}
+}
+
+func BenchmarkGenerateFavicons(b *testing.B) {
+	images := map[int]*image.RGBA{
+		16:  newTestImage(16),
+		32:  newTestImage(32),
+		180: newTestImage(180),
+		192: newTestImage(192),
+		512: newTestImage(512),
+	}
+
+	dir := b.TempDir()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		outDir := filepath.Join(dir, fmt.Sprintf("bench_%d", i))
+		if err := GenerateFavicons(images, outDir); err != nil {
+			b.Fatalf("GenerateFavicons: %v", err)
 		}
 	}
 }

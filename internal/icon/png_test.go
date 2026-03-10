@@ -343,6 +343,33 @@ func TestResizeImage(t *testing.T) {
 	}
 }
 
+func BenchmarkResizeImage(b *testing.B) {
+	src := newTestImage(512)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = ResizeImage(src, 64)
+	}
+}
+
+func BenchmarkWritePNGs(b *testing.B) {
+	sizes := []int{512, 256, 128, 64, 48, 32, 16}
+	images := make(map[int]*image.RGBA, len(sizes))
+	for _, s := range sizes {
+		images[s] = newTestImage(s)
+	}
+
+	dir := b.TempDir()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		outDir := filepath.Join(dir, fmt.Sprintf("bench_%d", i))
+		if err := WritePNGs(outDir, images); err != nil {
+			b.Fatalf("WritePNGs: %v", err)
+		}
+	}
+}
+
 func TestWritePNG_PixelDataPreserved(t *testing.T) {
 	tmpDir := t.TempDir()
 	outPath := filepath.Join(tmpDir, "pixel.png")

@@ -3,6 +3,7 @@ package icon
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -229,6 +230,24 @@ func TestWriteICO_EmptyMap(t *testing.T) {
 	count := binary.LittleEndian.Uint16(data[4:6])
 	if count != 0 {
 		t.Errorf("expected 0 entries for empty map, got %d", count)
+	}
+}
+
+func BenchmarkWriteICO(b *testing.B) {
+	sizes := []int{512, 256, 128, 64, 48, 32, 16}
+	images := make(map[int]*image.RGBA, len(sizes))
+	for _, s := range sizes {
+		images[s] = newTestImage(s)
+	}
+
+	dir := b.TempDir()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		outPath := filepath.Join(dir, fmt.Sprintf("bench_%d.ico", i))
+		if err := WriteICO(outPath, images); err != nil {
+			b.Fatalf("WriteICO: %v", err)
+		}
 	}
 }
 

@@ -2,6 +2,7 @@ package generator
 
 import (
 	"encoding/xml"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -198,6 +199,19 @@ func TestGenerateIconSVG_DifferentAppNames(t *testing.T) {
 				t.Error("generated SVG file is empty")
 			}
 		})
+	}
+}
+
+func BenchmarkGenerateIconSVG(b *testing.B) {
+	dir := b.TempDir()
+	palette := DefaultPalette()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		outPath := filepath.Join(dir, fmt.Sprintf("bench_%d.svg", i))
+		if err := GenerateIconSVG(outPath, "BenchApp", palette); err != nil {
+			b.Fatalf("GenerateIconSVG: %v", err)
+		}
 	}
 }
 

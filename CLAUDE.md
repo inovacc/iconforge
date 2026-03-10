@@ -53,7 +53,7 @@ docs/                   # Documentation
 
 ## Test Coverage
 
-**Current:** ~80% | **Target:** 80%
+**Current:** ~85% | **Target:** 80% (met)
 
 | Package | Coverage |
 |---------|----------|
@@ -63,7 +63,7 @@ docs/                   # Documentation
 | internal/generator | 85.7% |
 | internal/favicon | 85.3% |
 | internal/icon | 82.0% |
-| cmd | 26.4% |
+| cmd | 77.9% |
 
 ## Icon Sizes
 

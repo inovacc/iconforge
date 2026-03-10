@@ -1,7 +1,7 @@
 # Roadmap
 
 ## Current Status
-**Overall Progress:** 75% - Core complete, tests in progress
+**Overall Progress:** 100% - v1.0.0 released
 
 ## Phases
 
@@ -36,22 +36,25 @@
 ### Phase 5: Polish & Release [IN PROGRESS]
 - [x] Unit tests for internal/svg (95.7% coverage)
 - [x] Unit tests for internal/detect (86.0% coverage)
-- [x] Unit tests for internal/icon (69.0% coverage)
-- [x] Unit tests for internal/platform (73.3% coverage)
+- [x] Unit tests for internal/icon (82.0% coverage)
+- [x] Unit tests for internal/platform (94.8% coverage)
 - [x] Unit tests for internal/generator (85.7% coverage)
 - [x] Unit tests for internal/favicon (85.3% coverage)
 - [x] PNG input support (--from-png flag)
 - [x] Favicon generation (web-standard outputs)
 - [x] macOS .iconset directory output
 - [x] Integration tests for forge pipeline (cmd 27.9%)
-- [ ] CI/CD pipeline validation
-- [ ] Documentation completion
-- [ ] Performance optimization for large SVGs
-- [ ] v1.0.0 release
+- [x] CI/CD pipeline validation (Go 1.25 workflows)
+- [x] Documentation completion (README updated)
+- [x] --watch flag for auto-regeneration
+- [x] goversioninfo pure-Go .syso generation
+- [x] Performance benchmarks
+- [x] cmd/ coverage boosted to 77.9%
+- [x] v1.0.0 release
 
 ## Test Coverage
 
-**Current:** ~80% | **Target:** 80%
+**Current:** ~85% | **Target:** 80% (met)
 
 | Package | Coverage | Status |
 |---------|----------|--------|
@@ -61,4 +64,4 @@
 | internal/generator | 85.7% | Good |
 | internal/favicon | 85.3% | Good |
 | internal/icon | 82.0% | Good |
-| cmd | 26.4% | Needs improvement |
+| cmd | 77.9% | Good |

@@ -180,6 +180,64 @@ func TestRenderToImages_PropagatesError(t *testing.T) {
 	}
 }
 
+func BenchmarkRenderToImage(b *testing.B) {
+	svgContent := `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <linearGradient id="grad" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4F46E5"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+  </defs>
+  <rect x="10" y="10" width="80" height="80" fill="url(#grad)"/>
+  <circle cx="50" cy="50" r="30" fill="#F59E0B"/>
+</svg>`
+
+	dir := b.TempDir()
+	path := filepath.Join(dir, "bench.svg")
+	if err := os.WriteFile(path, []byte(svgContent), 0o644); err != nil {
+		b.Fatalf("write temp svg: %v", err)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := RenderToImage(path, 256)
+		if err != nil {
+			b.Fatalf("RenderToImage: %v", err)
+		}
+	}
+}
+
+func BenchmarkRenderToImages(b *testing.B) {
+	svgContent := `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <linearGradient id="grad" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4F46E5"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+  </defs>
+  <rect x="10" y="10" width="80" height="80" fill="url(#grad)"/>
+  <circle cx="50" cy="50" r="30" fill="#F59E0B"/>
+</svg>`
+
+	dir := b.TempDir()
+	path := filepath.Join(dir, "bench.svg")
+	if err := os.WriteFile(path, []byte(svgContent), 0o644); err != nil {
+		b.Fatalf("write temp svg: %v", err)
+	}
+
+	sizes := []int{512, 256, 128, 64, 48, 32, 16}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := RenderToImages(path, sizes)
+		if err != nil {
+			b.Fatalf("RenderToImages: %v", err)
+		}
+	}
+}
+
 func containsSubstring(s, substr string) bool {
 	return len(s) >= len(substr) && searchSubstring(s, substr)
 }

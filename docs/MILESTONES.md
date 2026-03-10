@@ -56,10 +56,12 @@
 - **Test Coverage:** ~75% (svg 95.7%, detect 86%, generator 85.7%, favicon 85.3%, platform 73.3%, icon 69%, cmd 27.9%)
 
 ## v1.0.0 - First Stable Release
-- **Target:** TBD
-- **Status:** In Progress
+- **Target:** 2026-03-10
+- **Status:** Complete
 - **Goals:**
-  - [ ] All internal packages at 80%+ coverage
-  - [ ] cmd package at 50%+ coverage
-  - [ ] Performance benchmarks
-  - [ ] Tag and release v1.0.0
+  - [x] All internal packages at 80%+ coverage
+  - [x] cmd package at 50%+ coverage (achieved 77.9%)
+  - [x] Performance benchmarks
+  - [x] CI/CD fixed (Go 1.25, variable shadowing fix)
+  - [x] Tag and release v1.0.0
+- **Test Coverage:** ~85% (svg 95.7%, platform 94.8%, detect 86%, generator 85.7%, favicon 85.3%, icon 82%, cmd 77.9%)

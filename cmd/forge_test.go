@@ -365,6 +365,116 @@ func TestForge_AutoDetect(t *testing.T) {
 	}
 }
 
+func TestForge_WithFavicon(t *testing.T) {
+	resetForgeFlags(t)
+	tmpDir := t.TempDir()
+
+	forgeGenSVG = true
+	forgeAppName = "favicontest"
+	forgeOutputDir = tmpDir
+	forgeFavicon = true
+
+	_, err := executeForge(t)
+	if err != nil {
+		t.Fatalf("forge --generate --favicon failed: %v", err)
+	}
+
+	// Verify favicon directory was created
+	faviconDir := filepath.Join(tmpDir, "favicon")
+	if _, err := os.Stat(faviconDir); os.IsNotExist(err) {
+		t.Error("expected favicon/ directory to exist")
+	}
+}
+
+func TestForge_WithIconset(t *testing.T) {
+	resetForgeFlags(t)
+	tmpDir := t.TempDir()
+
+	forgeGenSVG = true
+	forgeAppName = "iconsettest"
+	forgeOutputDir = tmpDir
+	forgeIconset = true
+
+	_, err := executeForge(t)
+	if err != nil {
+		t.Fatalf("forge --generate --iconset failed: %v", err)
+	}
+
+	// macOS iconset should exist
+	entries, err := os.ReadDir(filepath.Join(tmpDir, "macos"))
+	if err != nil {
+		t.Fatal("expected macos/ directory to exist")
+	}
+
+	foundIconset := false
+	for _, e := range entries {
+		if filepath.Ext(e.Name()) == ".iconset" || containsStr(e.Name(), "iconset") {
+			foundIconset = true
+			break
+		}
+	}
+	if !foundIconset {
+		t.Error("expected .iconset directory in macos/")
+	}
+}
+
+func TestForge_SkipAllPlatforms(t *testing.T) {
+	resetForgeFlags(t)
+	tmpDir := t.TempDir()
+
+	forgeGenSVG = true
+	forgeAppName = "skipall"
+	forgeOutputDir = tmpDir
+	forgeSkipWin = true
+	forgeSkipMac = true
+	forgeSkipLinux = true
+
+	_, err := executeForge(t)
+	if err != nil {
+		t.Fatalf("forge --skip-all failed: %v", err)
+	}
+
+	// PNGs should still exist
+	if _, err := os.Stat(filepath.Join(tmpDir, "png")); os.IsNotExist(err) {
+		t.Error("expected png/ directory to exist even when all platforms skipped")
+	}
+
+	// Platform dirs should NOT exist
+	for _, dir := range []string{"windows", "macos", "linux"} {
+		if _, err := os.Stat(filepath.Join(tmpDir, dir)); !os.IsNotExist(err) {
+			t.Errorf("expected %s/ directory to not exist when skipped", dir)
+		}
+	}
+}
+
+func TestForge_InvalidSVGPath(t *testing.T) {
+	resetForgeFlags(t)
+	tmpDir := t.TempDir()
+
+	forgeSVGPath = filepath.Join(tmpDir, "nonexistent.svg")
+	forgeAppName = "test"
+	forgeOutputDir = tmpDir
+
+	_, err := executeForge(t)
+	if err == nil {
+		t.Fatal("expected error for nonexistent SVG, got nil")
+	}
+}
+
+func TestForge_InvalidPNGPath(t *testing.T) {
+	resetForgeFlags(t)
+	tmpDir := t.TempDir()
+
+	forgePNGPath = filepath.Join(tmpDir, "nonexistent.png")
+	forgeAppName = "test"
+	forgeOutputDir = tmpDir
+
+	_, err := executeForge(t)
+	if err == nil {
+		t.Fatal("expected error for nonexistent PNG, got nil")
+	}
+}
+
 // containsStr checks if s contains substr.
 func containsStr(s, substr string) bool {
 	for i := 0; i <= len(s)-len(substr); i++ {

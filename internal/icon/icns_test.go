@@ -2,6 +2,7 @@ package icon
 
 import (
 	"encoding/binary"
+	"fmt"
 	"image"
 	"os"
 	"path/filepath"
@@ -198,6 +199,24 @@ func TestWriteICNS_MixedSupportedAndUnsupported(t *testing.T) {
 
 	if entryCount != 2 {
 		t.Errorf("expected 2 entries (32 and 64 are supported, 48 is not), got %d", entryCount)
+	}
+}
+
+func BenchmarkWriteICNS(b *testing.B) {
+	sizes := []int{512, 256, 128, 64, 32, 16}
+	images := make(map[int]*image.RGBA, len(sizes))
+	for _, s := range sizes {
+		images[s] = newTestImage(s)
+	}
+
+	dir := b.TempDir()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		outPath := filepath.Join(dir, fmt.Sprintf("bench_%d.icns", i))
+		if err := WriteICNS(outPath, images); err != nil {
+			b.Fatalf("WriteICNS: %v", err)
+		}
 	}
 }
 
