@@ -53,17 +53,17 @@ docs/                   # Documentation
 
 ## Test Coverage
 
-**Current:** ~75% | **Target:** 80%
+**Current:** ~80% | **Target:** 80%
 
 | Package | Coverage |
 |---------|----------|
 | internal/svg | 95.7% |
+| internal/platform | 94.8% |
 | internal/detect | 86.0% |
 | internal/generator | 85.7% |
 | internal/favicon | 85.3% |
-| internal/platform | 73.3% |
-| internal/icon | 69.0% |
-| cmd | 27.9% |
+| internal/icon | 82.0% |
+| cmd | 26.4% |
 
 ## Icon Sizes
 

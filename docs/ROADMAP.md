@@ -51,14 +51,14 @@
 
 ## Test Coverage
 
-**Current:** ~75% | **Target:** 80%
+**Current:** ~80% | **Target:** 80%
 
 | Package | Coverage | Status |
 |---------|----------|--------|
 | internal/svg | 95.7% | Excellent |
+| internal/platform | 94.8% | Excellent |
 | internal/detect | 86.0% | Good |
 | internal/generator | 85.7% | Good |
 | internal/favicon | 85.3% | Good |
-| internal/platform | 73.3% | Needs improvement |
-| internal/icon | 69.0% | Needs improvement |
-| cmd | 27.9% | Needs improvement |
+| internal/icon | 82.0% | Good |
+| cmd | 26.4% | Needs improvement |

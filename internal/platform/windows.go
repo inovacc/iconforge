@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	"github.com/josephspurrier/goversioninfo"
 )
 
 // VersionInfo represents the Windows VERSIONINFO resource structure
@@ -145,7 +147,90 @@ func GenerateSyso(icoPath, outputPath, arch string) error {
 	return nil
 }
 
-// GenerateSysoWithGovernVersionInfo generates a .syso using goversioninfo.
+// GenerateSysoGoversioninfo generates a .syso resource file using the
+// goversioninfo library (pure Go, no external tool required).
+// It builds version info, icon, and manifest directly from the WindowsConfig.
+func GenerateSysoGoversioninfo(cfg WindowsConfig, arch string) (string, error) {
+	if arch == "" {
+		arch = "amd64"
+	}
+
+	major, minor, patch := parseVersion(cfg.Version)
+
+	vi := &goversioninfo.VersionInfo{}
+	vi.FixedFileInfo.FileVersion.Major = major
+	vi.FixedFileInfo.FileVersion.Minor = minor
+	vi.FixedFileInfo.FileVersion.Patch = patch
+	vi.FixedFileInfo.FileVersion.Build = 0
+	vi.FixedFileInfo.ProductVersion.Major = major
+	vi.FixedFileInfo.ProductVersion.Minor = minor
+	vi.FixedFileInfo.ProductVersion.Patch = patch
+	vi.FixedFileInfo.ProductVersion.Build = 0
+	vi.FixedFileInfo.FileFlagsMask = "3f"
+	vi.FixedFileInfo.FileFlags = "00"
+	vi.FixedFileInfo.FileOS = "040004"
+	vi.FixedFileInfo.FileType = "01"
+	vi.FixedFileInfo.FileSubType = "00"
+
+	vi.StringFileInfo.CompanyName = cfg.Company
+	vi.StringFileInfo.FileDescription = cfg.Description
+	vi.StringFileInfo.FileVersion = cfg.Version
+	vi.StringFileInfo.InternalName = cfg.AppName
+	vi.StringFileInfo.LegalCopyright = cfg.Copyright
+	vi.StringFileInfo.OriginalFilename = cfg.AppName + ".exe"
+	vi.StringFileInfo.ProductName = cfg.AppName
+	vi.StringFileInfo.ProductVersion = cfg.Version
+
+	// Set the icon path (relative to where the .syso will be written)
+	vi.IconPath = cfg.ICOPath
+
+	// Generate a manifest with DPI awareness and asInvoker
+	manifestPath := filepath.Join(cfg.OutputDir, cfg.AppName+".exe.manifest")
+	if _, err := os.Stat(manifestPath); err == nil {
+		vi.ManifestPath = manifestPath
+	}
+
+	vi.Build()
+	vi.Walk()
+
+	outputPath := filepath.Join(cfg.OutputDir, "resource_windows_"+arch+".syso")
+	if err := vi.WriteSyso(outputPath, arch); err != nil {
+		return "", fmt.Errorf("goversioninfo WriteSyso: %w", err)
+	}
+
+	return outputPath, nil
+}
+
+// GenerateSysoFromJSON generates a .syso resource file from a versioninfo.json
+// file using the goversioninfo library (pure Go, no external tool required).
+func GenerateSysoFromJSON(versionInfoPath, outputPath, arch string) error {
+	if arch == "" {
+		arch = "amd64"
+	}
+
+	data, err := os.ReadFile(versionInfoPath)
+	if err != nil {
+		return fmt.Errorf("read versioninfo.json: %w", err)
+	}
+
+	vi := &goversioninfo.VersionInfo{}
+	if err := vi.ParseJSON(data); err != nil {
+		return fmt.Errorf("parse versioninfo.json: %w", err)
+	}
+
+	vi.Build()
+	vi.Walk()
+
+	if err := vi.WriteSyso(outputPath, arch); err != nil {
+		return fmt.Errorf("goversioninfo WriteSyso: %w", err)
+	}
+
+	return nil
+}
+
+// GenerateSysoWithGovernVersionInfo generates a .syso using the external
+// goversioninfo CLI tool. Deprecated: use GenerateSysoGoversioninfo or
+// GenerateSysoFromJSON instead, which use the library directly.
 func GenerateSysoWithGovernVersionInfo(versionInfoPath, outputPath string) error {
 	args := []string{
 		"-o", outputPath,

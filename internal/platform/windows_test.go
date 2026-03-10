@@ -321,3 +321,330 @@ func TestWriteManifest_InvalidOutputDir(t *testing.T) {
 		t.Error("expected error for invalid output directory, got nil")
 	}
 }
+
+func TestWriteManifest_AllSupportedOSGuids(t *testing.T) {
+	outputDir := t.TempDir()
+	outPath, err := WriteManifest("GuidApp", outputDir)
+	if err != nil {
+		t.Fatalf("WriteManifest() error = %v", err)
+	}
+
+	data, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatalf("failed to read manifest: %v", err)
+	}
+
+	content := string(data)
+
+	// All five Windows supportedOS GUIDs should be present
+	guids := []struct {
+		id      string
+		version string
+	}{
+		{"{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}", "Windows 10"},
+		{"{1f676c76-80e1-4239-95bb-83d0f6d0da78}", "Windows 7"},
+		{"{4a2f28e3-53b9-4441-ba9c-d69d4a4a6e38}", "Windows Vista"},
+		{"{35138b9a-5d96-4fbd-8e2d-a2440225f93a}", "Windows 8"},
+		{"{e2011457-1546-43c5-a5fe-008deee3d3f0}", "Windows 8.1"},
+	}
+
+	for _, g := range guids {
+		if !strings.Contains(content, g.id) {
+			t.Errorf("manifest missing supportedOS GUID for %s: %s", g.version, g.id)
+		}
+	}
+}
+
+func TestGenerateSyso_MissingTool(t *testing.T) {
+	// rsrc is unlikely to be on PATH in test environments
+	// This tests the error path when the external tool fails or is missing
+	tmpDir := t.TempDir()
+	icoPath := filepath.Join(tmpDir, "test.ico")
+	outputPath := filepath.Join(tmpDir, "test.syso")
+
+	// Create a dummy ICO file
+	if err := os.WriteFile(icoPath, []byte("fake ico"), 0o644); err != nil {
+		t.Fatalf("failed to write dummy ico: %v", err)
+	}
+
+	err := GenerateSyso(icoPath, outputPath, "amd64")
+	if err == nil {
+		// rsrc is installed; skip this test
+		t.Skip("rsrc is available on this system; skipping missing tool test")
+	}
+
+	// Verify error message wraps correctly
+	if !strings.Contains(err.Error(), "rsrc failed") {
+		t.Errorf("error should mention 'rsrc failed', got: %v", err)
+	}
+}
+
+func TestGenerateSyso_DefaultArch(t *testing.T) {
+	tmpDir := t.TempDir()
+	icoPath := filepath.Join(tmpDir, "test.ico")
+	outputPath := filepath.Join(tmpDir, "test.syso")
+
+	if err := os.WriteFile(icoPath, []byte("fake ico"), 0o644); err != nil {
+		t.Fatalf("failed to write dummy ico: %v", err)
+	}
+
+	// Empty arch should default to amd64 and still attempt to run rsrc
+	err := GenerateSyso(icoPath, outputPath, "")
+	if err == nil {
+		t.Skip("rsrc is available on this system; skipping")
+	}
+
+	if !strings.Contains(err.Error(), "rsrc failed") {
+		t.Errorf("error should mention 'rsrc failed', got: %v", err)
+	}
+}
+
+func TestGenerateSysoWithGovernVersionInfo_MissingTool(t *testing.T) {
+	tmpDir := t.TempDir()
+	versionInfoPath := filepath.Join(tmpDir, "versioninfo.json")
+	outputPath := filepath.Join(tmpDir, "resource.syso")
+
+	if err := os.WriteFile(versionInfoPath, []byte("{}"), 0o644); err != nil {
+		t.Fatalf("failed to write dummy versioninfo: %v", err)
+	}
+
+	err := GenerateSysoWithGovernVersionInfo(versionInfoPath, outputPath)
+	if err == nil {
+		t.Skip("goversioninfo is available on this system; skipping missing tool test")
+	}
+
+	if !strings.Contains(err.Error(), "goversioninfo failed") {
+		t.Errorf("error should mention 'goversioninfo failed', got: %v", err)
+	}
+}
+
+func TestGenerateSysoGoversioninfo(t *testing.T) {
+	tests := []struct {
+		name    string
+		cfg     WindowsConfig
+		arch    string
+		wantErr bool
+	}{
+		{
+			name: "basic config amd64",
+			cfg: WindowsConfig{
+				AppName:     "TestApp",
+				Description: "Test application",
+				Version:     "1.0.0",
+				Company:     "Test Corp",
+				Copyright:   "Copyright 2026",
+			},
+			arch: "amd64",
+		},
+		{
+			name: "default arch",
+			cfg: WindowsConfig{
+				AppName: "DefaultArch",
+				Version: "2.0.0",
+			},
+			arch: "", // should default to amd64
+		},
+		{
+			name: "386 arch",
+			cfg: WindowsConfig{
+				AppName: "X86App",
+				Version: "1.0.0",
+			},
+			arch: "386",
+		},
+		{
+			name: "v-prefixed version",
+			cfg: WindowsConfig{
+				AppName: "VPrefixed",
+				Version: "v3.2.1",
+			},
+			arch: "amd64",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.cfg.OutputDir = t.TempDir()
+			// ICOPath can be empty — goversioninfo handles missing icon gracefully
+			tt.cfg.ICOPath = ""
+
+			outPath, err := GenerateSysoGoversioninfo(tt.cfg, tt.arch)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("GenerateSysoGoversioninfo() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr {
+				return
+			}
+
+			if _, err := os.Stat(outPath); err != nil {
+				t.Fatalf(".syso file was not created: %v", err)
+			}
+
+			info, err := os.Stat(outPath)
+			if err != nil {
+				t.Fatalf("stat: %v", err)
+			}
+			if info.Size() == 0 {
+				t.Error(".syso file is empty")
+			}
+
+			expectedArch := tt.arch
+			if expectedArch == "" {
+				expectedArch = "amd64"
+			}
+			expectedName := "resource_windows_" + expectedArch + ".syso"
+			if filepath.Base(outPath) != expectedName {
+				t.Errorf("output filename = %q, want %q", filepath.Base(outPath), expectedName)
+			}
+		})
+	}
+}
+
+func TestGenerateSysoGoversioninfo_WithManifest(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := WindowsConfig{
+		AppName:     "ManifestApp",
+		Description: "App with manifest",
+		Version:     "1.0.0",
+		OutputDir:   tmpDir,
+		ICOPath:     "",
+	}
+
+	// Create a manifest file so that the manifest path is picked up
+	manifestPath := filepath.Join(tmpDir, "ManifestApp.exe.manifest")
+	if err := os.WriteFile(manifestPath, []byte(`<?xml version="1.0"?><assembly/>`), 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	outPath, err := GenerateSysoGoversioninfo(cfg, "amd64")
+	if err != nil {
+		t.Fatalf("GenerateSysoGoversioninfo() error = %v", err)
+	}
+
+	if _, err := os.Stat(outPath); err != nil {
+		t.Fatalf(".syso not created: %v", err)
+	}
+}
+
+func TestGenerateSysoFromJSON(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// First create a valid versioninfo.json via WriteVersionInfo
+	cfg := WindowsConfig{
+		AppName:     "JSONApp",
+		Description: "Built from JSON",
+		Version:     "2.1.0",
+		Company:     "JSON Corp",
+		Copyright:   "Copyright 2026",
+		ICOPath:     "",
+		OutputDir:   tmpDir,
+	}
+
+	viPath, err := WriteVersionInfo(cfg)
+	if err != nil {
+		t.Fatalf("WriteVersionInfo() error = %v", err)
+	}
+
+	outputPath := filepath.Join(tmpDir, "resource.syso")
+	err = GenerateSysoFromJSON(viPath, outputPath, "amd64")
+	if err != nil {
+		t.Fatalf("GenerateSysoFromJSON() error = %v", err)
+	}
+
+	if _, err := os.Stat(outputPath); err != nil {
+		t.Fatalf(".syso not created: %v", err)
+	}
+}
+
+func TestGenerateSysoFromJSON_DefaultArch(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := WindowsConfig{
+		AppName:   "ArchApp",
+		Version:   "1.0.0",
+		ICOPath:   "",
+		OutputDir: tmpDir,
+	}
+
+	viPath, err := WriteVersionInfo(cfg)
+	if err != nil {
+		t.Fatalf("WriteVersionInfo() error = %v", err)
+	}
+
+	outputPath := filepath.Join(tmpDir, "resource.syso")
+	err = GenerateSysoFromJSON(viPath, outputPath, "")
+	if err != nil {
+		t.Fatalf("GenerateSysoFromJSON() error = %v", err)
+	}
+
+	if _, err := os.Stat(outputPath); err != nil {
+		t.Fatalf(".syso not created: %v", err)
+	}
+}
+
+func TestGenerateSysoFromJSON_InvalidPath(t *testing.T) {
+	err := GenerateSysoFromJSON("/nonexistent/versioninfo.json", "/tmp/out.syso", "amd64")
+	if err == nil {
+		t.Error("expected error for nonexistent versioninfo.json, got nil")
+	}
+}
+
+func TestGenerateSysoFromJSON_InvalidJSON(t *testing.T) {
+	tmpDir := t.TempDir()
+	badPath := filepath.Join(tmpDir, "bad.json")
+	if err := os.WriteFile(badPath, []byte("not valid json{{{"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	outputPath := filepath.Join(tmpDir, "out.syso")
+	err := GenerateSysoFromJSON(badPath, outputPath, "amd64")
+	if err == nil {
+		t.Error("expected error for invalid JSON, got nil")
+	}
+}
+
+func TestWriteVersionInfo_VersionQuadFields(t *testing.T) {
+	cfg := WindowsConfig{
+		AppName:   "QuadApp",
+		Version:   "v3.7.12",
+		ICOPath:   "icon.ico",
+		OutputDir: t.TempDir(),
+	}
+
+	outPath, err := WriteVersionInfo(cfg)
+	if err != nil {
+		t.Fatalf("WriteVersionInfo() error = %v", err)
+	}
+
+	data, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatalf("failed to read file: %v", err)
+	}
+
+	var vi VersionInfo
+	if err := json.Unmarshal(data, &vi); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	// Verify ProductVersion quad matches FileVersion quad
+	if vi.FixedFileInfo.ProductVersion != vi.FixedFileInfo.FileVersion {
+		t.Errorf("ProductVersion quad %+v != FileVersion quad %+v",
+			vi.FixedFileInfo.ProductVersion, vi.FixedFileInfo.FileVersion)
+	}
+
+	// Check fixed field values
+	if vi.FixedFileInfo.FileFlagsMask != "3f" {
+		t.Errorf("FileFlagsMask = %q, want %q", vi.FixedFileInfo.FileFlagsMask, "3f")
+	}
+	if vi.FixedFileInfo.FileFlags != "00" {
+		t.Errorf("FileFlags = %q, want %q", vi.FixedFileInfo.FileFlags, "00")
+	}
+	if vi.FixedFileInfo.FileOS != "040004" {
+		t.Errorf("FileOS = %q, want %q", vi.FixedFileInfo.FileOS, "040004")
+	}
+	if vi.FixedFileInfo.FileType != "01" {
+		t.Errorf("FileType = %q, want %q", vi.FixedFileInfo.FileType, "01")
+	}
+	if vi.FixedFileInfo.FileSubType != "00" {
+		t.Errorf("FileSubType = %q, want %q", vi.FixedFileInfo.FileSubType, "00")
+	}
+}

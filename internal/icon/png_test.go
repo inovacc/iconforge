@@ -3,6 +3,7 @@ package icon
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -228,6 +229,117 @@ func TestWritePNGs_CorrectFilenames(t *testing.T) {
 		if !found {
 			t.Errorf("expected file %s not found", name)
 		}
+	}
+}
+
+func TestLoadPNG(t *testing.T) {
+	t.Run("valid PNG file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		pngPath := filepath.Join(tmpDir, "test.png")
+
+		// Write a test PNG first
+		orig := newTestImage(32)
+		if err := WritePNG(pngPath, orig); err != nil {
+			t.Fatalf("WritePNG() error = %v", err)
+		}
+
+		loaded, err := LoadPNG(pngPath)
+		if err != nil {
+			t.Fatalf("LoadPNG() error = %v", err)
+		}
+
+		bounds := loaded.Bounds()
+		if bounds.Dx() != 32 || bounds.Dy() != 32 {
+			t.Errorf("loaded image size = %dx%d, want 32x32", bounds.Dx(), bounds.Dy())
+		}
+	})
+
+	t.Run("nonexistent file", func(t *testing.T) {
+		_, err := LoadPNG(filepath.Join(t.TempDir(), "nonexistent.png"))
+		if err == nil {
+			t.Error("expected error for nonexistent file, got nil")
+		}
+	})
+
+	t.Run("invalid PNG data", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		badPath := filepath.Join(tmpDir, "bad.png")
+		if err := os.WriteFile(badPath, []byte("not a png"), 0o644); err != nil {
+			t.Fatalf("failed to write bad file: %v", err)
+		}
+
+		_, err := LoadPNG(badPath)
+		if err == nil {
+			t.Error("expected error for invalid PNG data, got nil")
+		}
+	})
+
+	t.Run("NRGBA format conversion", func(t *testing.T) {
+		// Create an NRGBA image (not RGBA), encode as PNG, then load
+		tmpDir := t.TempDir()
+		pngPath := filepath.Join(tmpDir, "nrgba.png")
+
+		nrgba := image.NewNRGBA(image.Rect(0, 0, 16, 16))
+		for y := 0; y < 16; y++ {
+			for x := 0; x < 16; x++ {
+				nrgba.SetNRGBA(x, y, color.NRGBA{R: 100, G: 50, B: 200, A: 255})
+			}
+		}
+
+		f, err := os.Create(pngPath)
+		if err != nil {
+			t.Fatalf("create file: %v", err)
+		}
+		if err := png.Encode(f, nrgba); err != nil {
+			_ = f.Close()
+			t.Fatalf("encode NRGBA: %v", err)
+		}
+		_ = f.Close()
+
+		loaded, err := LoadPNG(pngPath)
+		if err != nil {
+			t.Fatalf("LoadPNG() error = %v", err)
+		}
+
+		if loaded == nil {
+			t.Fatal("LoadPNG() returned nil image")
+		}
+
+		bounds := loaded.Bounds()
+		if bounds.Dx() != 16 || bounds.Dy() != 16 {
+			t.Errorf("loaded image size = %dx%d, want 16x16", bounds.Dx(), bounds.Dy())
+		}
+	})
+}
+
+func TestResizeImage(t *testing.T) {
+	tests := []struct {
+		name       string
+		srcSize    int
+		targetSize int
+	}{
+		{"downscale 128 to 32", 128, 32},
+		{"upscale 16 to 64", 16, 64},
+		{"same size 32 to 32", 32, 32},
+		{"downscale 512 to 16", 512, 16},
+		{"upscale 32 to 256", 32, 256},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			src := newTestImage(tt.srcSize)
+			result := ResizeImage(src, tt.targetSize)
+
+			if result == nil {
+				t.Fatal("ResizeImage() returned nil")
+			}
+
+			bounds := result.Bounds()
+			if bounds.Dx() != tt.targetSize || bounds.Dy() != tt.targetSize {
+				t.Errorf("resized image = %dx%d, want %dx%d",
+					bounds.Dx(), bounds.Dy(), tt.targetSize, tt.targetSize)
+			}
+		})
 	}
 }
 

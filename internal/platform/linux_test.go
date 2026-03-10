@@ -160,6 +160,106 @@ func TestCreateDesktopEntry(t *testing.T) {
 	}
 }
 
+func TestCreateDesktopEntry_ErrorOnInvalidOutputDir(t *testing.T) {
+	// Use a path where directory creation would fail (file as parent)
+	tmpDir := t.TempDir()
+	// Create a file where we need a directory
+	blockingFile := filepath.Join(tmpDir, "blocker")
+	if err := os.WriteFile(blockingFile, []byte("x"), 0o644); err != nil {
+		t.Fatalf("failed to write blocking file: %v", err)
+	}
+
+	cfg := LinuxConfig{
+		AppName:   "FailApp",
+		OutputDir: filepath.Join(blockingFile, "subdir"),
+	}
+	images := makeTestImages(32)
+
+	err := CreateDesktopEntry(cfg, images)
+	if err == nil {
+		t.Error("expected error when output dir cannot be created, got nil")
+	}
+}
+
+func TestCreateDesktopEntry_HicolorIconError(t *testing.T) {
+	// Create a valid output dir so the desktop file succeeds,
+	// but make the icons subdirectory creation fail
+	tmpDir := t.TempDir()
+
+	// Write a file at the path where "icons" dir is needed
+	blockingFile := filepath.Join(tmpDir, "icons")
+	if err := os.WriteFile(blockingFile, []byte("x"), 0o644); err != nil {
+		t.Fatalf("failed to write blocking file: %v", err)
+	}
+
+	cfg := LinuxConfig{
+		AppName:   "IconFailApp",
+		OutputDir: tmpDir,
+	}
+	images := makeTestImages(32)
+
+	err := CreateDesktopEntry(cfg, images)
+	if err == nil {
+		t.Error("expected error when icon directory cannot be created, got nil")
+	}
+	if err != nil && !strings.Contains(err.Error(), "hicolor") {
+		t.Errorf("error should mention hicolor icons, got: %v", err)
+	}
+}
+
+func TestWriteHicolorIcons_MultipleSizes(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := LinuxConfig{
+		AppName:   "MultiApp",
+		OutputDir: tmpDir,
+	}
+	images := makeTestImages(16, 32, 48, 64, 128, 256)
+
+	err := writeHicolorIcons(cfg, images)
+	if err != nil {
+		t.Fatalf("writeHicolorIcons() error = %v", err)
+	}
+
+	for size := range images {
+		iconPath := filepath.Join(tmpDir, "icons", "hicolor",
+			fmt.Sprintf("%dx%d", size, size), "apps", "MultiApp.png")
+		if _, err := os.Stat(iconPath); os.IsNotExist(err) {
+			t.Errorf("missing icon at %s", iconPath)
+		}
+	}
+}
+
+func TestWriteDesktopFile_AllDefaults(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := LinuxConfig{
+		AppName:   "DefaultApp",
+		OutputDir: tmpDir,
+	}
+
+	err := writeDesktopFile(cfg)
+	if err != nil {
+		t.Fatalf("writeDesktopFile() error = %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(tmpDir, "DefaultApp.desktop"))
+	if err != nil {
+		t.Fatalf("failed to read desktop file: %v", err)
+	}
+
+	content := string(data)
+
+	// All defaults should be applied
+	if !strings.Contains(content, "Exec=DefaultApp") {
+		t.Error("expected Exec default to be AppName")
+	}
+	if !strings.Contains(content, "Categories=Utility;") {
+		t.Error("expected Categories default to be Utility;")
+	}
+	if !strings.Contains(content, "Comment=DefaultApp") {
+		t.Error("expected Comment default to be AppName")
+	}
+}
+
 func TestCreateDesktopEntry_EmptyImages(t *testing.T) {
 	cfg := LinuxConfig{
 		AppName:   "EmptyApp",

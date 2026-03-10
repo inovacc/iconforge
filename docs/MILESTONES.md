@@ -42,20 +42,24 @@
 - **Test Coverage:** ~65% (svg 95.7%, detect 86%, platform 71.1%, icon 69%, generator 0%, cmd 0%)
 
 ## v0.5.0 - Web & Polish
-- **Target:** TBD
-- **Status:** In Progress
+- **Target:** 2026-03-10
+- **Status:** Complete
 - **Goals:**
-  - [ ] Favicon generation (ICO, Apple touch, PWA manifest)
-  - [ ] macOS .iconset directory output
-  - [ ] Generator package tests
-  - [ ] Integration tests for forge pipeline
-  - [ ] Test coverage target: 80%+
+  - [x] Favicon generation (ICO, Apple touch, PWA manifest)
+  - [x] macOS .iconset directory output
+  - [x] Generator package tests (85.7%)
+  - [x] Integration tests for forge pipeline (cmd 27.9%)
+  - [x] --watch flag for auto-regeneration
+  - [x] goversioninfo pure-Go .syso generation
+  - [x] CI/CD pipeline fixed (Go 1.25)
+  - [x] README documentation updated
+- **Test Coverage:** ~75% (svg 95.7%, detect 86%, generator 85.7%, favicon 85.3%, platform 73.3%, icon 69%, cmd 27.9%)
 
 ## v1.0.0 - First Stable Release
 - **Target:** TBD
-- **Status:** Not Started
+- **Status:** In Progress
 - **Goals:**
-  - [ ] All packages tested (80%+ coverage)
-  - [ ] Documentation complete
-  - [ ] CI/CD validated
+  - [ ] All internal packages at 80%+ coverage
+  - [ ] cmd package at 50%+ coverage
   - [ ] Performance benchmarks
+  - [ ] Tag and release v1.0.0

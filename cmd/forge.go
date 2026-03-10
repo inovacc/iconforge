@@ -5,8 +5,12 @@ import (
 	"image"
 	"log/slog"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"sync"
+	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/inovacc/iconforge/internal/detect"
 	"github.com/inovacc/iconforge/internal/favicon"
 	"github.com/inovacc/iconforge/internal/generator"
@@ -36,6 +40,7 @@ var (
 	forgeAutoDetect bool
 	forgeIconset    bool
 	forgeFavicon    bool
+	forgeWatch      bool
 )
 
 // Standard icon sizes for export
@@ -83,9 +88,106 @@ func init() {
 	forgeCmd.Flags().BoolVar(&forgeAutoDetect, "auto-detect", false, "Auto-detect and generate framework-specific icons")
 	forgeCmd.Flags().BoolVar(&forgeIconset, "iconset", false, "Also generate .iconset directory for macOS iconutil")
 	forgeCmd.Flags().BoolVar(&forgeFavicon, "favicon", false, "Also generate web-standard favicons")
+	forgeCmd.Flags().BoolVar(&forgeWatch, "watch", false, "Watch source file and auto-regenerate on changes")
 }
 
 func runForge(cmd *cobra.Command, _ []string) error {
+	if err := runForgePipeline(cmd); err != nil {
+		return err
+	}
+
+	if !forgeWatch {
+		return nil
+	}
+
+	// Determine the source file to watch
+	sourceFile := forgeSVGPath
+	if forgePNGPath != "" {
+		sourceFile = forgePNGPath
+	}
+	if sourceFile == "" {
+		if forgeGenSVG {
+			return fmt.Errorf("cannot use --watch with --generate (no source file to watch)")
+		}
+		return fmt.Errorf("no source file to watch")
+	}
+
+	absSource, err := filepath.Abs(sourceFile)
+	if err != nil {
+		return fmt.Errorf("resolve source path: %w", err)
+	}
+
+	return watchAndRebuild(cmd, absSource)
+}
+
+func watchAndRebuild(cmd *cobra.Command, sourceFile string) error {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return fmt.Errorf("create watcher: %w", err)
+	}
+	defer func() { _ = watcher.Close() }()
+
+	// Watch the directory containing the source file
+	watchDir := filepath.Dir(sourceFile)
+	if err := watcher.Add(watchDir); err != nil {
+		return fmt.Errorf("watch directory %s: %w", watchDir, err)
+	}
+
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\nWatching %s for changes... (Ctrl+C to stop)\n", sourceFile)
+
+	// Handle Ctrl+C gracefully
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt)
+	defer signal.Stop(sigCh)
+
+	// Debounce timer
+	var mu sync.Mutex
+	var debounceTimer *time.Timer
+
+	sourceName := filepath.Base(sourceFile)
+
+	for {
+		select {
+		case event, ok := <-watcher.Events:
+			if !ok {
+				return nil
+			}
+			// Only react to Write or Create events for the source file
+			if filepath.Base(event.Name) != sourceName {
+				continue
+			}
+			if !event.Has(fsnotify.Write) && !event.Has(fsnotify.Create) {
+				continue
+			}
+
+			mu.Lock()
+			if debounceTimer != nil {
+				debounceTimer.Stop()
+			}
+			debounceTimer = time.AfterFunc(500*time.Millisecond, func() {
+				ts := time.Now().Format("15:04:05")
+				if rebuildErr := runForgePipeline(cmd); rebuildErr != nil {
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "[%s] Error rebuilding: %v\n", ts, rebuildErr)
+				} else {
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "[%s] Rebuilt icons from %s\n", ts, sourceFile)
+				}
+			})
+			mu.Unlock()
+
+		case watchErr, ok := <-watcher.Errors:
+			if !ok {
+				return nil
+			}
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Watcher error: %v\n", watchErr)
+
+		case <-sigCh:
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "\nStopping watcher.")
+			return nil
+		}
+	}
+}
+
+func runForgePipeline(cmd *cobra.Command) error {
 	logger := slog.Default()
 
 	// Determine app name
@@ -257,13 +359,20 @@ func forgeWindows(cmd *cobra.Command, appName string, images map[int]*image.RGBA
 	}
 	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Windows app manifest: %s\n", manifestPath)
 
-	// Try to generate .syso using rsrc
-	sysoPath := filepath.Join(winDir, "rsrc_windows_"+forgeArch+".syso")
-	if err := platform.GenerateSyso(icoPath, sysoPath, forgeArch); err != nil {
-		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Note: rsrc not available (install with: go install github.com/akavel/rsrc@latest)\n")
-		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  You can generate .syso manually: rsrc -ico %s -o %s -arch %s\n", icoPath, sysoPath, forgeArch)
+	// Generate .syso: try goversioninfo (pure Go) first, fall back to rsrc
+	sysoPath, gviErr := platform.GenerateSysoGoversioninfo(cfg, forgeArch)
+	if gviErr == nil {
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Windows .syso (goversioninfo): %s\n", sysoPath)
 	} else {
-		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Windows .syso: %s\n", sysoPath)
+		// Fall back to rsrc (external tool)
+		sysoPath = filepath.Join(winDir, "rsrc_windows_"+forgeArch+".syso")
+		if err := platform.GenerateSyso(icoPath, sysoPath, forgeArch); err != nil {
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Note: .syso generation failed\n")
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  goversioninfo: %v\n", gviErr)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  rsrc: %v\n", err)
+		} else {
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Windows .syso (rsrc): %s\n", sysoPath)
+		}
 	}
 
 	return nil

@@ -263,6 +263,95 @@ func TestCreateIconset(t *testing.T) {
 	}
 }
 
+func TestCreateAppBundle_InvalidOutputDir(t *testing.T) {
+	tmpDir := t.TempDir()
+	// Create a file to block directory creation
+	blockingFile := filepath.Join(tmpDir, "blocker")
+	if err := os.WriteFile(blockingFile, []byte("x"), 0o644); err != nil {
+		t.Fatalf("failed to write blocking file: %v", err)
+	}
+
+	cfg := DarwinConfig{
+		AppName:   "FailApp",
+		OutputDir: filepath.Join(blockingFile, "subdir"),
+	}
+	images := makeTestImages(128)
+
+	err := CreateAppBundle(cfg, images)
+	if err == nil {
+		t.Error("expected error for invalid output dir, got nil")
+	}
+}
+
+func TestCreateAppBundle_UnsupportedICNSSizes(t *testing.T) {
+	cfg := DarwinConfig{
+		AppName:   "NoICNSApp",
+		OutputDir: t.TempDir(),
+	}
+	// Only unsupported ICNS sizes (48 is not in icnsTypes map)
+	images := makeTestImages(48)
+
+	err := CreateAppBundle(cfg, images)
+	if err == nil {
+		t.Error("expected error when all image sizes are unsupported for ICNS, got nil")
+	}
+}
+
+func TestCreateIconset_InvalidOutputDir(t *testing.T) {
+	tmpDir := t.TempDir()
+	blockingFile := filepath.Join(tmpDir, "blocker")
+	if err := os.WriteFile(blockingFile, []byte("x"), 0o644); err != nil {
+		t.Fatalf("failed to write blocking file: %v", err)
+	}
+
+	images := makeTestImages(512)
+	_, err := CreateIconset(filepath.Join(blockingFile, "sub"), "App", images)
+	if err == nil {
+		t.Error("expected error for invalid output dir, got nil")
+	}
+}
+
+func TestWriteInfoPlist_AllDefaults(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := DarwinConfig{
+		AppName: "DefaultApp",
+	}
+
+	err := writeInfoPlist(cfg, tmpDir)
+	if err != nil {
+		t.Fatalf("writeInfoPlist() error = %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(tmpDir, "Info.plist"))
+	if err != nil {
+		t.Fatalf("failed to read plist: %v", err)
+	}
+
+	content := string(data)
+
+	// Check defaults
+	if !strings.Contains(content, "<string>DefaultApp</string>") {
+		t.Error("expected default executable to be AppName")
+	}
+	if !strings.Contains(content, "<string>com.example.DefaultApp</string>") {
+		t.Error("expected default bundleID")
+	}
+	if !strings.Contains(content, "<string>1.0.0</string>") {
+		t.Error("expected default version 1.0.0")
+	}
+}
+
+func TestWriteInfoPlist_InvalidOutputDir(t *testing.T) {
+	cfg := DarwinConfig{
+		AppName: "FailApp",
+	}
+
+	err := writeInfoPlist(cfg, filepath.Join(t.TempDir(), "nonexistent", "deep"))
+	if err == nil {
+		t.Error("expected error for invalid output dir, got nil")
+	}
+}
+
 func TestCreateIconset_MissingSizes(t *testing.T) {
 	// Only provide 512 — everything else must be resized.
 	images := makeTestImages(512)
