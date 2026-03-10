@@ -17,6 +17,7 @@ import (
 
 var (
 	forgeSVGPath    string
+	forgePNGPath    string
 	forgeOutputDir  string
 	forgeAppName    string
 	forgeVersion    string
@@ -59,6 +60,7 @@ func init() {
 	rootCmd.AddCommand(forgeCmd)
 
 	forgeCmd.Flags().StringVar(&forgeSVGPath, "svg", "", "Path to source SVG file")
+	forgeCmd.Flags().StringVar(&forgePNGPath, "from-png", "", "Path to source PNG file (alternative to --svg)")
 	forgeCmd.Flags().StringVarP(&forgeOutputDir, "output", "o", "build/icons", "Output directory")
 	forgeCmd.Flags().StringVar(&forgeAppName, "name", "", "Application name (auto-detected from directory if empty)")
 	forgeCmd.Flags().StringVar(&forgeVersion, "version", "1.0.0", "Application version")
@@ -96,6 +98,14 @@ func runForge(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("create output dir: %w", err)
 	}
 
+	// Validate mutually exclusive flags
+	if forgePNGPath != "" && forgeSVGPath != "" {
+		return fmt.Errorf("--from-png and --svg are mutually exclusive")
+	}
+	if forgePNGPath != "" && forgeGenSVG {
+		return fmt.Errorf("--from-png and --generate are mutually exclusive")
+	}
+
 	svgPath := forgeSVGPath
 
 	// Generate SVG if requested
@@ -116,18 +126,37 @@ func runForge(cmd *cobra.Command, _ []string) error {
 		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Generated SVG: %s\n", svgPath)
 	}
 
-	if svgPath == "" {
-		return fmt.Errorf("no SVG source specified; use --svg or --generate")
-	}
+	var images map[int]*image.RGBA
 
-	// Rasterize SVG to multiple sizes
-	logger.Info("rasterizing SVG", "sizes", extendedSizes)
-	images, err := svgrender.RenderToImages(svgPath, extendedSizes)
-	if err != nil {
-		return fmt.Errorf("rasterize svg: %w", err)
-	}
+	if forgePNGPath != "" {
+		// Load PNG and resize to all extended sizes
+		logger.Info("loading PNG source", "path", forgePNGPath)
+		srcImg, err := icon.LoadPNG(forgePNGPath)
+		if err != nil {
+			return fmt.Errorf("load png: %w", err)
+		}
 
-	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Rasterized to %d sizes\n", len(images))
+		images = make(map[int]*image.RGBA, len(extendedSizes))
+		for _, size := range extendedSizes {
+			images[size] = icon.ResizeImage(srcImg, size)
+		}
+
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Resized PNG to %d sizes\n", len(images))
+	} else {
+		if svgPath == "" {
+			return fmt.Errorf("no source specified; use --svg, --from-png, or --generate")
+		}
+
+		// Rasterize SVG to multiple sizes
+		logger.Info("rasterizing SVG", "sizes", extendedSizes)
+		var err error
+		images, err = svgrender.RenderToImages(svgPath, extendedSizes)
+		if err != nil {
+			return fmt.Errorf("rasterize svg: %w", err)
+		}
+
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Rasterized to %d sizes\n", len(images))
+	}
 
 	// Export PNGs
 	pngDir := filepath.Join(forgeOutputDir, "png")

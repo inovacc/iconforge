@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"image"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -14,6 +15,7 @@ import (
 
 var (
 	renderSVGPath   string
+	renderPNGPath   string
 	renderOutputDir string
 	renderSizesStr  string
 )
@@ -27,6 +29,13 @@ Examples:
   iconforge render --svg icon.svg --sizes 512,256,128,64,48,32,16
   iconforge render --svg icon.svg -o build/png`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
+		if renderSVGPath == "" && renderPNGPath == "" {
+			return fmt.Errorf("either --svg or --png must be provided")
+		}
+		if renderSVGPath != "" && renderPNGPath != "" {
+			return fmt.Errorf("--svg and --png are mutually exclusive")
+		}
+
 		sizes, err := parseSizes(renderSizesStr)
 		if err != nil {
 			return err
@@ -36,9 +45,23 @@ Examples:
 			return fmt.Errorf("create output dir: %w", err)
 		}
 
-		images, err := svgrender.RenderToImages(renderSVGPath, sizes)
-		if err != nil {
-			return fmt.Errorf("render: %w", err)
+		var images map[int]*image.RGBA
+
+		if renderPNGPath != "" {
+			srcImg, err := icon.LoadPNG(renderPNGPath)
+			if err != nil {
+				return fmt.Errorf("load png: %w", err)
+			}
+
+			images = make(map[int]*image.RGBA, len(sizes))
+			for _, size := range sizes {
+				images[size] = icon.ResizeImage(srcImg, size)
+			}
+		} else {
+			images, err = svgrender.RenderToImages(renderSVGPath, sizes)
+			if err != nil {
+				return fmt.Errorf("render: %w", err)
+			}
 		}
 
 		if err := icon.WritePNGs(renderOutputDir, images); err != nil {
@@ -54,10 +77,9 @@ func init() {
 	rootCmd.AddCommand(renderCmd)
 
 	renderCmd.Flags().StringVar(&renderSVGPath, "svg", "", "Path to source SVG file")
+	renderCmd.Flags().StringVar(&renderPNGPath, "png", "", "Path to source PNG file (alternative to --svg)")
 	renderCmd.Flags().StringVarP(&renderOutputDir, "output", "o", "build/icons/png", "Output directory")
 	renderCmd.Flags().StringVar(&renderSizesStr, "sizes", "512,256,128,64,48,32,16", "Comma-separated icon sizes")
-
-	_ = renderCmd.MarkFlagRequired("svg")
 }
 
 func parseSizes(s string) ([]int, error) {
