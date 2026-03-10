@@ -1,7 +1,7 @@
 # Roadmap
 
 ## Current Status
-**Overall Progress:** 60% - Core functionality implemented
+**Overall Progress:** 75% - Core complete, tests in progress
 
 ## Phases
 
@@ -33,9 +33,17 @@
 - [x] Configurable color palette (primary, secondary, accent)
 - [x] oksvg-compatible SVG output
 
-### Phase 5: Polish & Release [NOT STARTED]
-- [ ] Unit tests (target: 80% coverage)
-- [ ] Integration tests for forge pipeline
+### Phase 5: Polish & Release [IN PROGRESS]
+- [x] Unit tests for internal/svg (95.7% coverage)
+- [x] Unit tests for internal/detect (86.0% coverage)
+- [x] Unit tests for internal/icon (69.0% coverage)
+- [x] Unit tests for internal/platform (73.3% coverage)
+- [x] Unit tests for internal/generator (85.7% coverage)
+- [x] Unit tests for internal/favicon (85.3% coverage)
+- [x] PNG input support (--from-png flag)
+- [x] Favicon generation (web-standard outputs)
+- [x] macOS .iconset directory output
+- [x] Integration tests for forge pipeline (cmd 27.9%)
 - [ ] CI/CD pipeline validation
 - [ ] Documentation completion
 - [ ] Performance optimization for large SVGs
@@ -43,13 +51,14 @@
 
 ## Test Coverage
 
-**Current:** 0.0% | **Target:** 80%
+**Current:** ~75% | **Target:** 80%
 
 | Package | Coverage | Status |
 |---------|----------|--------|
-| cmd | 0.0% | No tests |
-| internal/svg | 0.0% | No tests |
-| internal/icon | 0.0% | No tests |
-| internal/platform | 0.0% | No tests |
-| internal/detect | 0.0% | No tests |
-| internal/generator | 0.0% | No tests |
+| internal/svg | 95.7% | Excellent |
+| internal/detect | 86.0% | Good |
+| internal/generator | 85.7% | Good |
+| internal/favicon | 85.3% | Good |
+| internal/platform | 73.3% | Needs improvement |
+| internal/icon | 69.0% | Needs improvement |
+| cmd | 27.9% | Needs improvement |

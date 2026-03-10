@@ -47,6 +47,58 @@ func CreateAppBundle(cfg DarwinConfig, images map[int]*image.RGBA) error {
 	return nil
 }
 
+// iconsetEntry maps an Apple-standard filename to the pixel size it requires.
+type iconsetEntry struct {
+	Filename string
+	Size     int
+}
+
+// iconsetFiles defines the standard .iconset directory contents.
+var iconsetFiles = []iconsetEntry{
+	{"icon_16x16.png", 16},
+	{"icon_16x16@2x.png", 32},
+	{"icon_32x32.png", 32},
+	{"icon_32x32@2x.png", 64},
+	{"icon_128x128.png", 128},
+	{"icon_128x128@2x.png", 256},
+	{"icon_256x256.png", 256},
+	{"icon_256x256@2x.png", 512},
+	{"icon_512x512.png", 512},
+	{"icon_512x512@2x.png", 1024},
+}
+
+// CreateIconset creates a .iconset directory with Apple-standard naming.
+// The directory can be converted to .icns using macOS `iconutil -c icns`.
+func CreateIconset(outputDir string, appName string, images map[int]*image.RGBA) (string, error) {
+	iconsetDir := filepath.Join(outputDir, appName+".iconset")
+	if err := os.MkdirAll(iconsetDir, 0o755); err != nil {
+		return "", fmt.Errorf("create iconset dir: %w", err)
+	}
+
+	// Find the largest available image for resizing fallback.
+	var largestSize int
+	for size := range images {
+		if size > largestSize {
+			largestSize = size
+		}
+	}
+
+	for _, entry := range iconsetFiles {
+		img, ok := images[entry.Size]
+		if !ok {
+			// Resize from the largest available image.
+			img = icon.ResizeImage(images[largestSize], entry.Size)
+		}
+
+		path := filepath.Join(iconsetDir, entry.Filename)
+		if err := icon.WritePNG(path, img); err != nil {
+			return "", fmt.Errorf("write %s: %w", entry.Filename, err)
+		}
+	}
+
+	return iconsetDir, nil
+}
+
 // writeInfoPlist generates the Info.plist file for the .app bundle.
 func writeInfoPlist(cfg DarwinConfig, contentsPath string) error {
 	executable := cfg.Executable

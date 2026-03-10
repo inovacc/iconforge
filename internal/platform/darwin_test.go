@@ -2,6 +2,7 @@ package platform
 
 import (
 	"image"
+	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
@@ -202,5 +203,107 @@ func TestCreateAppBundle(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestCreateIconset(t *testing.T) {
+	images := makeTestImages(16, 32, 64, 128, 256, 512, 1024)
+	outputDir := t.TempDir()
+
+	iconsetPath, err := CreateIconset(outputDir, "TestApp", images)
+	if err != nil {
+		t.Fatalf("CreateIconset() error = %v", err)
+	}
+
+	wantDir := filepath.Join(outputDir, "TestApp.iconset")
+	if iconsetPath != wantDir {
+		t.Errorf("iconsetPath = %q, want %q", iconsetPath, wantDir)
+	}
+
+	info, err := os.Stat(iconsetPath)
+	if err != nil {
+		t.Fatalf("iconset dir does not exist: %v", err)
+	}
+	if !info.IsDir() {
+		t.Fatal("iconset path is not a directory")
+	}
+
+	expectedFiles := map[string]int{
+		"icon_16x16.png":      16,
+		"icon_16x16@2x.png":   32,
+		"icon_32x32.png":      32,
+		"icon_32x32@2x.png":   64,
+		"icon_128x128.png":    128,
+		"icon_128x128@2x.png": 256,
+		"icon_256x256.png":    256,
+		"icon_256x256@2x.png": 512,
+		"icon_512x512.png":    512,
+		"icon_512x512@2x.png": 1024,
+	}
+
+	for filename, wantSize := range expectedFiles {
+		path := filepath.Join(iconsetPath, filename)
+		f, err := os.Open(path)
+		if err != nil {
+			t.Errorf("missing file %s: %v", filename, err)
+			continue
+		}
+
+		img, err := png.Decode(f)
+		_ = f.Close()
+		if err != nil {
+			t.Errorf("failed to decode %s: %v", filename, err)
+			continue
+		}
+
+		bounds := img.Bounds()
+		if bounds.Dx() != wantSize || bounds.Dy() != wantSize {
+			t.Errorf("%s: got %dx%d, want %dx%d", filename, bounds.Dx(), bounds.Dy(), wantSize, wantSize)
+		}
+	}
+}
+
+func TestCreateIconset_MissingSizes(t *testing.T) {
+	// Only provide 512 — everything else must be resized.
+	images := makeTestImages(512)
+	outputDir := t.TempDir()
+
+	iconsetPath, err := CreateIconset(outputDir, "ResizeApp", images)
+	if err != nil {
+		t.Fatalf("CreateIconset() error = %v", err)
+	}
+
+	expectedFiles := map[string]int{
+		"icon_16x16.png":      16,
+		"icon_16x16@2x.png":   32,
+		"icon_32x32.png":      32,
+		"icon_32x32@2x.png":   64,
+		"icon_128x128.png":    128,
+		"icon_128x128@2x.png": 256,
+		"icon_256x256.png":    256,
+		"icon_256x256@2x.png": 512,
+		"icon_512x512.png":    512,
+		"icon_512x512@2x.png": 1024,
+	}
+
+	for filename, wantSize := range expectedFiles {
+		path := filepath.Join(iconsetPath, filename)
+		f, err := os.Open(path)
+		if err != nil {
+			t.Errorf("missing file %s: %v", filename, err)
+			continue
+		}
+
+		img, err := png.Decode(f)
+		_ = f.Close()
+		if err != nil {
+			t.Errorf("failed to decode %s: %v", filename, err)
+			continue
+		}
+
+		bounds := img.Bounds()
+		if bounds.Dx() != wantSize || bounds.Dy() != wantSize {
+			t.Errorf("%s: got %dx%d, want %dx%d", filename, bounds.Dx(), bounds.Dy(), wantSize, wantSize)
+		}
 	}
 }

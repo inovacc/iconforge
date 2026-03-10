@@ -30,13 +30,32 @@
   - [x] Configurable color palette
   - [x] oksvg-compatible output
 
+## v0.4.0 - Testing & PNG Input
+- **Target:** 2026-03-09
+- **Status:** Complete
+- **Goals:**
+  - [x] Unit tests for internal/svg (95.7%)
+  - [x] Unit tests for internal/detect (86.0%)
+  - [x] Unit tests for internal/icon (69.0%)
+  - [x] Unit tests for internal/platform (71.1%)
+  - [x] PNG input support (--from-png flag)
+- **Test Coverage:** ~65% (svg 95.7%, detect 86%, platform 71.1%, icon 69%, generator 0%, cmd 0%)
+
+## v0.5.0 - Web & Polish
+- **Target:** TBD
+- **Status:** In Progress
+- **Goals:**
+  - [ ] Favicon generation (ICO, Apple touch, PWA manifest)
+  - [ ] macOS .iconset directory output
+  - [ ] Generator package tests
+  - [ ] Integration tests for forge pipeline
+  - [ ] Test coverage target: 80%+
+
 ## v1.0.0 - First Stable Release
 - **Target:** TBD
 - **Status:** Not Started
 - **Goals:**
-  - [ ] Unit tests for all internal packages
-  - [ ] Integration tests for full pipeline
-  - [ ] Test coverage target: 80%+
+  - [ ] All packages tested (80%+ coverage)
   - [ ] Documentation complete
   - [ ] CI/CD validated
   - [ ] Performance benchmarks

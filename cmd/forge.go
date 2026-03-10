@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/inovacc/iconforge/internal/detect"
+	"github.com/inovacc/iconforge/internal/favicon"
 	"github.com/inovacc/iconforge/internal/generator"
 	"github.com/inovacc/iconforge/internal/icon"
 	"github.com/inovacc/iconforge/internal/platform"
@@ -33,6 +34,8 @@ var (
 	forgeSkipMac    bool
 	forgeSkipLinux  bool
 	forgeAutoDetect bool
+	forgeIconset    bool
+	forgeFavicon    bool
 )
 
 // Standard icon sizes for export
@@ -78,6 +81,8 @@ func init() {
 	forgeCmd.Flags().BoolVar(&forgeSkipMac, "skip-macos", false, "Skip macOS icon generation")
 	forgeCmd.Flags().BoolVar(&forgeSkipLinux, "skip-linux", false, "Skip Linux icon generation")
 	forgeCmd.Flags().BoolVar(&forgeAutoDetect, "auto-detect", false, "Auto-detect and generate framework-specific icons")
+	forgeCmd.Flags().BoolVar(&forgeIconset, "iconset", false, "Also generate .iconset directory for macOS iconutil")
+	forgeCmd.Flags().BoolVar(&forgeFavicon, "favicon", false, "Also generate web-standard favicons")
 }
 
 func runForge(cmd *cobra.Command, _ []string) error {
@@ -202,6 +207,15 @@ func runForge(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
+	// Favicons
+	if forgeFavicon {
+		faviconDir := filepath.Join(forgeOutputDir, "favicon")
+		if err := favicon.GenerateFavicons(images, faviconDir); err != nil {
+			return fmt.Errorf("generate favicons: %w", err)
+		}
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Favicons: %s\n", faviconDir)
+	}
+
 	_, _ = fmt.Fprintln(cmd.OutOrStdout(), "\nForge complete!")
 	return nil
 }
@@ -283,6 +297,15 @@ func forgeMacOS(cmd *cobra.Command, appName string, images map[int]*image.RGBA) 
 		return fmt.Errorf("create app bundle: %w", err)
 	}
 	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "macOS .app bundle: %s/%s.app\n", macDir, appName)
+
+	// Generate .iconset directory if requested
+	if forgeIconset {
+		iconsetPath, err := platform.CreateIconset(macDir, appName, images)
+		if err != nil {
+			return fmt.Errorf("create iconset: %w", err)
+		}
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "macOS .iconset: %s\n", iconsetPath)
+	}
 
 	return nil
 }

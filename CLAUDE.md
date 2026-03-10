@@ -27,6 +27,7 @@ internal/
   icon/                 # ICO, ICNS, PNG encoders
   platform/             # Platform-specific generators (Windows, macOS, Linux)
   detect/               # Framework detection (Tauri, Electron, Wails, Fyne)
+  favicon/              # Web favicon generation (ICO, Apple touch, PWA manifest)
   generator/            # SVG icon generator
 docs/                   # Documentation
 ```
@@ -44,6 +45,7 @@ docs/                   # Documentation
 | `forge` | Generate all icons from SVG (main workflow) |
 | `render` | Rasterize SVG to PNG at specified sizes |
 | `embed` | Generate .syso resource file for Go builds |
+| `favicon` | Generate web favicons (ICO, Apple touch, PWA) |
 | `detect` | Detect framework and show required assets |
 | `version` | Print version information |
 | `cmdtree` | Display command tree visualization |
@@ -51,16 +53,17 @@ docs/                   # Documentation
 
 ## Test Coverage
 
-**Current:** 0.0% | **Target:** 80%
+**Current:** ~75% | **Target:** 80%
 
 | Package | Coverage |
 |---------|----------|
-| cmd | 0.0% |
-| internal/svg | 0.0% |
-| internal/icon | 0.0% |
-| internal/platform | 0.0% |
-| internal/detect | 0.0% |
-| internal/generator | 0.0% |
+| internal/svg | 95.7% |
+| internal/detect | 86.0% |
+| internal/generator | 85.7% |
+| internal/favicon | 85.3% |
+| internal/platform | 73.3% |
+| internal/icon | 69.0% |
+| cmd | 27.9% |
 
 ## Icon Sizes
 
