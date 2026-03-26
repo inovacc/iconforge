@@ -74,13 +74,13 @@ func TestEmbed_InvalidMethod(t *testing.T) {
 	}
 }
 
-func TestEmbed_Goversioninfo(t *testing.T) {
+func TestEmbed_Winres(t *testing.T) {
 	resetEmbedFlags(t)
 	tmpDir := t.TempDir()
 	icoPath := createTestICO(t)
 
 	embedICOPath = icoPath
-	embedMethod = "goversioninfo"
+	embedMethod = "auto"
 	embedOutputPath = filepath.Join(tmpDir, "resource.syso")
 	embedAppName = "testapp"
 	embedVersion = "2.0.0"
@@ -89,11 +89,32 @@ func TestEmbed_Goversioninfo(t *testing.T) {
 
 	output, err := executeEmbed(t)
 	if err != nil {
-		t.Fatalf("embed --method goversioninfo failed: %v", err)
+		t.Fatalf("embed --method auto failed: %v", err)
 	}
 
-	if !containsStr(output, "goversioninfo") {
-		t.Errorf("expected 'goversioninfo' in output, got: %s", output)
+	if !containsStr(output, "winres") {
+		t.Errorf("expected 'winres' in output, got: %s", output)
+	}
+}
+
+func TestEmbed_GoversioninfoBackCompat(t *testing.T) {
+	resetEmbedFlags(t)
+	tmpDir := t.TempDir()
+	icoPath := createTestICO(t)
+
+	// "goversioninfo" method should map to winres
+	embedICOPath = icoPath
+	embedMethod = "goversioninfo"
+	embedOutputPath = filepath.Join(tmpDir, "resource.syso")
+	embedAppName = "testapp"
+
+	output, err := executeEmbed(t)
+	if err != nil {
+		t.Fatalf("embed --method goversioninfo (back compat) failed: %v", err)
+	}
+
+	if !containsStr(output, "winres") {
+		t.Errorf("expected 'winres' in output, got: %s", output)
 	}
 }
 
@@ -107,70 +128,48 @@ func TestEmbed_Auto(t *testing.T) {
 	embedOutputPath = filepath.Join(tmpDir, "resource.syso")
 
 	output, err := executeEmbed(t)
-	// auto tries goversioninfo first, then rsrc — either could succeed or fail
-	// depending on available tools, but the function itself should not panic
 	if err != nil {
-		// rsrc might not be installed — that's OK, we tested the path
-		t.Logf("embed auto returned error (expected if rsrc not installed): %v", err)
-	} else {
-		if output == "" {
-			t.Error("expected non-empty output on success")
-		}
+		t.Fatalf("embed auto failed: %v", err)
+	}
+	if output == "" {
+		t.Error("expected non-empty output on success")
 	}
 }
 
-func TestEmbed_Rsrc(t *testing.T) {
+func TestEmbed_Simple(t *testing.T) {
 	resetEmbedFlags(t)
 	tmpDir := t.TempDir()
 	icoPath := createTestICO(t)
 
 	embedICOPath = icoPath
-	embedMethod = "rsrc"
-	embedOutputPath = filepath.Join(tmpDir, "resource.syso")
-
-	_, err := executeEmbed(t)
-	// rsrc requires the external tool to be installed
-	// We just verify the function runs without panic
-	if err != nil {
-		t.Logf("embed rsrc returned error (expected if rsrc not installed): %v", err)
-	}
-}
-
-func TestEmbed_GoversioninfoWithVI(t *testing.T) {
-	resetEmbedFlags(t)
-	tmpDir := t.TempDir()
-	icoPath := createTestICO(t)
-
-	// Create a versioninfo.json file
-	viContent := `{
-	"FixedFileInfo": {
-		"FileVersion": {"Major": 1, "Minor": 0, "Patch": 0, "Build": 0},
-		"ProductVersion": {"Major": 1, "Minor": 0, "Patch": 0, "Build": 0}
-	},
-	"StringFileInfo": {
-		"FileDescription": "Test App",
-		"ProductName": "TestApp"
-	},
-	"IconPath": ""
-}`
-	viPath := filepath.Join(tmpDir, "versioninfo.json")
-	if err := os.WriteFile(viPath, []byte(viContent), 0o644); err != nil {
-		t.Fatalf("write versioninfo.json: %v", err)
-	}
-
-	embedICOPath = icoPath
-	embedMethod = "goversioninfo"
-	embedViPath = viPath
+	embedMethod = "simple"
 	embedOutputPath = filepath.Join(tmpDir, "resource.syso")
 
 	output, err := executeEmbed(t)
 	if err != nil {
-		// goversioninfo with a custom JSON might fail if the JSON schema doesn't match
-		t.Logf("embed goversioninfo with VI returned error: %v", err)
-	} else {
-		if !containsStr(output, "goversioninfo") {
-			t.Errorf("expected 'goversioninfo' in output, got: %s", output)
-		}
+		t.Fatalf("embed simple failed: %v", err)
+	}
+	if !containsStr(output, "winres") {
+		t.Errorf("expected 'winres' in output, got: %s", output)
+	}
+}
+
+func TestEmbed_RsrcBackCompat(t *testing.T) {
+	resetEmbedFlags(t)
+	tmpDir := t.TempDir()
+	icoPath := createTestICO(t)
+
+	// "rsrc" method should map to simple
+	embedICOPath = icoPath
+	embedMethod = "rsrc"
+	embedOutputPath = filepath.Join(tmpDir, "resource.syso")
+
+	output, err := executeEmbed(t)
+	if err != nil {
+		t.Fatalf("embed --method rsrc (back compat) failed: %v", err)
+	}
+	if !containsStr(output, "winres") {
+		t.Errorf("expected 'winres' in output, got: %s", output)
 	}
 }
 
@@ -180,7 +179,7 @@ func TestEmbed_Arch386(t *testing.T) {
 	icoPath := createTestICO(t)
 
 	embedICOPath = icoPath
-	embedMethod = "goversioninfo"
+	embedMethod = "auto"
 	embedOutputPath = filepath.Join(tmpDir, "resource.syso")
 	embedArch = "386"
 
@@ -189,8 +188,8 @@ func TestEmbed_Arch386(t *testing.T) {
 		t.Fatalf("embed --arch 386 failed: %v", err)
 	}
 
-	if !containsStr(output, "goversioninfo") {
-		t.Errorf("expected 'goversioninfo' in output, got: %s", output)
+	if !containsStr(output, "winres") {
+		t.Errorf("expected 'winres' in output, got: %s", output)
 	}
 }
 
@@ -200,7 +199,7 @@ func TestEmbed_ArchArm64(t *testing.T) {
 	icoPath := createTestICO(t)
 
 	embedICOPath = icoPath
-	embedMethod = "goversioninfo"
+	embedMethod = "auto"
 	embedOutputPath = filepath.Join(tmpDir, "resource.syso")
 	embedArch = "arm64"
 
@@ -209,7 +208,7 @@ func TestEmbed_ArchArm64(t *testing.T) {
 		t.Fatalf("embed --arch arm64 failed: %v", err)
 	}
 
-	if !containsStr(output, "goversioninfo") {
-		t.Errorf("expected 'goversioninfo' in output, got: %s", output)
+	if !containsStr(output, "winres") {
+		t.Errorf("expected 'winres' in output, got: %s", output)
 	}
 }

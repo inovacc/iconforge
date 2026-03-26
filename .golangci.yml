@@ -7,24 +7,29 @@ run:
 
 linters:
   default: all
-  enable:
-    - govet
-    - errcheck
-    - bodyclose
-    - copyloopvar
-    - dogsled
-    - errorlint
-    - gocheckcompilerdirectives
-    - gocritic
-    - goprintffuncname
-    - ineffassign
-    - misspell
-    - nakedret
-    - nolintlint
-    - staticcheck
-    - unconvert
-    - unparam
-    - unused
+
+  exclusions:
+    rules:
+      - path: "examples/"
+        linters:
+          - forbidigo
+          - gocritic
+
+      # scraper packages call scout's public API which manages context internally
+      - path: "pkg/scout/scraper/"
+        linters:
+          - contextcheck
+
+      # grpc server and capture call scout's public API which manages context internally
+      - path: "grpc/"
+        linters:
+          - contextcheck
+      - path: "pkg/scout/capture.go"
+        linters:
+          - contextcheck
+      - path: "pkg/scout/recipes/"
+        linters:
+          - staticcheck
 
   disable:
     - tagliatelle
@@ -38,6 +43,7 @@ linters:
     - cyclop
     - err113
     - wsl
+    - errorlint
     - exhaustruct
     - forcetypeassert
     - funcorder

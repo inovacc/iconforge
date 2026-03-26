@@ -22,6 +22,14 @@ func DefaultPalette() ColorPalette {
 	}
 }
 
+func init() {
+	RegisterTemplate(TemplateInfo{
+		Name:        "forge",
+		Description: "Diamond facets with forge flame — the classic IconForge default",
+		GenerateFn:  GenerateIconSVG,
+	})
+}
+
 // GenerateIconSVG creates a modern abstract gradient SVG icon.
 // Uses only oksvg-compatible elements (linearGradient, basic shapes, paths).
 // The design features nested diamond facets with a forge-flame center.

@@ -29,15 +29,13 @@ The .syso file is automatically linked by the Go linker during build,
 embedding the icon and version info into the resulting .exe.
 
 Methods:
-  auto           - Try goversioninfo (pure Go) first, fall back to rsrc (default)
-  goversioninfo  - Pure Go, full version info + icon (no external tool needed)
-  rsrc           - External tool, simple icon embedding (github.com/akavel/rsrc)
+  auto    - Use winres (pure Go) with full version info (default)
+  simple  - Embed icon only, no version info
 
 Examples:
   iconforge embed --ico build/icons/windows/icon.ico
-  iconforge embed --ico icon.ico --method goversioninfo --name myapp --version 1.0.0
-  iconforge embed --ico icon.ico --method rsrc --arch arm64
-  iconforge embed --ico icon.ico --vi versioninfo.json`,
+  iconforge embed --ico icon.ico --name myapp --version 1.0.0
+  iconforge embed --ico icon.ico --method simple --arch arm64`,
 	RunE: runEmbed,
 }
 
@@ -46,15 +44,15 @@ func init() {
 
 	embedCmd.Flags().StringVar(&embedICOPath, "ico", "", "Path to ICO file")
 	embedCmd.Flags().StringVarP(&embedOutputPath, "output", "o", "resource.syso", "Output .syso file path")
-	embedCmd.Flags().StringVar(&embedArch, "arch", "amd64", "Target architecture (amd64, 386, arm64)")
-	embedCmd.Flags().StringVar(&embedMethod, "method", "auto", "Method to use: auto, goversioninfo, rsrc")
-	embedCmd.Flags().StringVar(&embedViPath, "vi", "", "Path to versioninfo.json (optional, for goversioninfo)")
+	embedCmd.Flags().StringVar(&embedArch, "arch", "amd64", "Target architecture (amd64, 386, arm, arm64)")
+	embedCmd.Flags().StringVar(&embedMethod, "method", "auto", "Method to use: auto, simple")
+	embedCmd.Flags().StringVar(&embedViPath, "vi", "", "Path to versioninfo.json (optional)")
 	embedCmd.Flags().StringVar(&embedAppName, "name", "app", "Application name for version info")
 	embedCmd.Flags().StringVar(&embedVersion, "version", "1.0.0", "Application version")
 	embedCmd.Flags().StringVar(&embedCompany, "company", "", "Company name")
 	embedCmd.Flags().StringVar(&embedCopyright, "copyright", "", "Copyright notice")
 
-	// Keep --tool as hidden alias for backward compat
+	// Keep deprecated flags as hidden aliases for backward compat
 	embedCmd.Flags().String("tool", "", "Deprecated: use --method instead")
 	_ = embedCmd.Flags().MarkHidden("tool")
 
@@ -64,45 +62,22 @@ func init() {
 func runEmbed(cmd *cobra.Command, _ []string) error {
 	method := embedMethod
 
-	// Support deprecated --tool flag for backward compat
 	if tool, _ := cmd.Flags().GetString("tool"); tool != "" {
 		method = tool
 	}
 
+	// Map old method names to new ones for backward compat
 	switch method {
-	case "auto":
-		return embedAuto(cmd)
-	case "goversioninfo":
-		return embedGoversioninfo(cmd)
-	case "rsrc":
-		return embedRsrc(cmd)
+	case "auto", "goversioninfo":
+		return embedWinres(cmd)
+	case "simple", "rsrc":
+		return embedSimple(cmd)
 	default:
-		return fmt.Errorf("unsupported method: %s (use 'auto', 'goversioninfo', or 'rsrc')", method)
+		return fmt.Errorf("unsupported method: %s (use 'auto' or 'simple')", method)
 	}
 }
 
-func embedAuto(cmd *cobra.Command) error {
-	// Try goversioninfo (pure Go) first
-	if err := embedGoversioninfo(cmd); err == nil {
-		return nil
-	}
-
-	// Fall back to rsrc
-	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "goversioninfo failed, falling back to rsrc...\n")
-	return embedRsrc(cmd)
-}
-
-func embedGoversioninfo(cmd *cobra.Command) error {
-	// If a versioninfo.json was provided, use it directly
-	if embedViPath != "" {
-		if err := platform.GenerateSysoFromJSON(embedViPath, embedOutputPath, embedArch); err != nil {
-			return fmt.Errorf("goversioninfo (JSON): %w", err)
-		}
-		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Generated .syso (goversioninfo/JSON): %s\n", embedOutputPath)
-		return nil
-	}
-
-	// Build from flags
+func embedWinres(cmd *cobra.Command) error {
 	outputDir := filepath.Dir(embedOutputPath)
 	cfg := platform.WindowsConfig{
 		AppName:     embedAppName,
@@ -114,18 +89,18 @@ func embedGoversioninfo(cmd *cobra.Command) error {
 		OutputDir:   outputDir,
 	}
 
-	sysoPath, err := platform.GenerateSysoGoversioninfo(cfg, embedArch)
+	sysoPath, err := platform.GenerateSysoWinres(cfg, embedArch)
 	if err != nil {
-		return fmt.Errorf("goversioninfo: %w", err)
+		return fmt.Errorf("winres: %w", err)
 	}
-	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Generated .syso (goversioninfo): %s\n", sysoPath)
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Generated .syso (winres): %s\n", sysoPath)
 	return nil
 }
 
-func embedRsrc(cmd *cobra.Command) error {
-	if err := platform.GenerateSyso(embedICOPath, embedOutputPath, embedArch); err != nil {
-		return fmt.Errorf("rsrc: %w", err)
+func embedSimple(cmd *cobra.Command) error {
+	if err := platform.GenerateSysoFromICO(embedICOPath, embedOutputPath, embedArch); err != nil {
+		return fmt.Errorf("winres: %w", err)
 	}
-	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Generated .syso (rsrc): %s\n", embedOutputPath)
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Generated .syso (winres/simple): %s\n", embedOutputPath)
 	return nil
 }

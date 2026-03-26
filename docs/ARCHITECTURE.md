@@ -29,9 +29,12 @@ flowchart TB
         fw["internal/detect<br/>Framework Scanner"]
     end
 
-    subgraph External ["External Tools (Optional)"]
-        rsrc["rsrc"]
-        gvi["goversioninfo"]
+    subgraph Internalized ["Internalized Libraries"]
+        winres["pkg/winres<br/>Windows Resources"]
+    end
+
+    subgraph Web ["Web Assets"]
+        fav["internal/favicon<br/>Favicon Generator"]
     end
 
     CLI --> Commands
@@ -40,6 +43,7 @@ flowchart TB
     forge --> icon
     forge --> win & mac & linux
     forge --> fw
+    forge --> fav
     render --> svg
     render --> icon
     embed --> win
@@ -50,8 +54,7 @@ flowchart TB
     icon -->|".icns"| mac
     icon -->|".png"| linux
 
-    win -->|"exec"| rsrc
-    win -->|"exec"| gvi
+    win -->|"pure Go"| winres
 
     fw -->|"Tauri/Electron/Wails/Fyne"| icon
 
@@ -97,12 +100,8 @@ sequenceDiagram
         Win-->>CLI: versioninfo.json
         CLI->>Win: WriteManifest(name, dir)
         Win-->>CLI: app.exe.manifest
-        CLI->>Win: GenerateSyso(ico, output, arch)
-        alt rsrc available
-            Win-->>CLI: rsrc.syso
-        else rsrc not installed
-            Win-->>CLI: manual instructions
-        end
+        CLI->>Win: GenerateSysoWinres(config, arch)
+        Win-->>CLI: resource_windows_amd64.syso
     end
 
     alt macOS (not skipped)

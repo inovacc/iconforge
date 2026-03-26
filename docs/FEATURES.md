@@ -42,16 +42,31 @@
 - **Description:** Generate modern abstract gradient SVG icons with configurable color palette
 - **Implementation:** `internal/generator/icon_svg.go`
 
-## Proposed Features
-
 ### Favicon Generation
-- **Priority:** P3
-- **Status:** Proposed
+- **Status:** Completed
 - **Description:** Generate web favicon set (ICO, Apple touch, PWA manifest icons)
-- **Motivation:** Many Go projects serve web UIs
+- **Implementation:** `internal/favicon/`
 
 ### PNG Input Support
-- **Priority:** P3
-- **Status:** Proposed
-- **Description:** Accept PNG as input (resize/convert) instead of requiring SVG
-- **Motivation:** Not all projects have SVG source icons
+- **Status:** Completed
+- **Description:** Accept PNG as input (`--from-png` flag) instead of requiring SVG
+- **Implementation:** `cmd/forge.go` (image/png decode path)
+
+### Icon Template System
+- **Status:** Completed
+- **Description:** 10 built-in SVG icon templates with registry and `--template`/`--list-templates` flags
+- **Implementation:** `internal/generator/templates.go`
+
+### Terminal Icon Preview
+- **Status:** Completed
+- **Description:** ANSI 24-bit half-block terminal preview with `--preview` flag
+- **Implementation:** `cmd/preview.go`
+
+### Pure Go .syso Generation
+- **Status:** Completed
+- **Description:** Internalized tc-hib/winres library for Windows resource embedding without external tools
+- **Implementation:** `pkg/winres/`, `internal/platform/windows.go`
+
+## Proposed Features
+
+_No proposed features at this time._

@@ -31,8 +31,8 @@ tab_width = 2
 indent_size = 2
 tab_width = 2
 
-# JSON-like files
-[*.{har,jsb2,jsb3,json,jsonc,babelrc,eslintrc,prettierrc,stylelintrc}]
+# JSON-like files (Postman, configs, etc.)
+[*.{har,jsb2,jsb3,json,jsonc,postman_collection,postman_collection.json,postman_environment,postman_environment.json,babelrc,eslintrc,prettierrc,stylelintrc,ws-context,jest.config}]
 indent_size = 2
 
 # Markdown

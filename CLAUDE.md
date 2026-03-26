@@ -36,13 +36,17 @@ docs/                   # Documentation
 
 - `github.com/srwiley/oksvg` + `rasterx` — Pure Go SVG rasterizer
 - `github.com/spf13/cobra` — CLI framework
-- External tools (optional): `rsrc`, `goversioninfo` for .syso generation
+- `pkg/winres` — Internalized Windows resource library (pure Go .syso generation, from tc-hib/winres v0.3.1)
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
 | `forge` | Generate all icons from SVG (main workflow) |
+| `forge --list-templates` | List available icon templates |
+| `forge --template <name>` | Use a specific template with --generate |
+| `forge --preview` | Show ANSI terminal preview of the generated icon |
+| `forge --prompt` | Output AI prompt for interactive icon creation with Claude Code |
 | `render` | Rasterize SVG to PNG at specified sizes |
 | `embed` | Generate .syso resource file for Go builds |
 | `favicon` | Generate web favicons (ICO, Apple touch, PWA) |
@@ -51,19 +55,43 @@ docs/                   # Documentation
 | `cmdtree` | Display command tree visualization |
 | `aicontext` | Generate AI context documentation |
 
+## Icon Templates
+
+10 built-in SVG templates (use `--template <name>` with `--generate`):
+
+| Template | Description |
+|----------|-------------|
+| `forge` | Diamond facets with forge flame (default) |
+| `shield` | Shield with keyhole — security, VPN, auth |
+| `terminal` | Terminal window — CLI tools, dev utilities |
+| `gear` | Mechanical gear — system utilities |
+| `cube` | Isometric cube — data, 3D, containers |
+| `bolt` | Lightning bolt — speed, performance |
+| `leaf` | Leaf — eco, nature, growth |
+| `wave` | Wave pattern — streaming, audio |
+| `hexagon` | Hexagonal grid — science, tech |
+| `stack` | Stacked layers — infrastructure, DevOps |
+
+## Claude Code Integration
+
+Run `iconforge forge --prompt` to get a structured AI prompt that guides Claude Code
+through interactive icon creation (template selection, color picking, platform options).
+Claude Code can then build and execute the full iconforge command, preview the result,
+and iterate on the SVG if needed.
+
 ## Test Coverage
 
-**Current:** ~85% | **Target:** 80% (met)
+**Current:** ~87% | **Target:** 80% (met)
 
 | Package | Coverage |
 |---------|----------|
 | internal/svg | 95.7% |
-| internal/platform | 94.8% |
+| internal/generator | 94.6% |
 | internal/detect | 86.0% |
-| internal/generator | 85.7% |
 | internal/favicon | 85.3% |
+| internal/platform | 83.4% |
 | internal/icon | 82.0% |
-| cmd | 77.9% |
+| cmd | 80.3% |
 
 ## Icon Sizes
 

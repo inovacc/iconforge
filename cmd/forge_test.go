@@ -38,6 +38,14 @@ func resetForgeFlags(t *testing.T) {
 	forgeSkipMac = false
 	forgeSkipLinux = false
 	forgeAutoDetect = false
+	forgeIconset = false
+	forgeFavicon = false
+	forgeWatch = false
+	forgeTemplate = "forge"
+	forgeListTemplates = false
+	forgePrompt = false
+	forgePreview = false
+	forgePreviewSize = 32
 }
 
 // writeTestSVG writes a valid SVG file to disk and returns its path.
@@ -472,6 +480,385 @@ func TestForge_InvalidPNGPath(t *testing.T) {
 	_, err := executeForge(t)
 	if err == nil {
 		t.Fatal("expected error for nonexistent PNG, got nil")
+	}
+}
+
+func TestForge_ListTemplates(t *testing.T) {
+	resetForgeFlags(t)
+	forgeListTemplates = true
+
+	output, err := executeForge(t)
+	if err != nil {
+		t.Fatalf("forge --list-templates failed: %v", err)
+	}
+
+	expectedTemplates := []string{"forge", "shield", "terminal", "gear", "cube", "bolt", "leaf", "wave", "hexagon", "stack"}
+	for _, name := range expectedTemplates {
+		if !containsStr(output, name) {
+			t.Errorf("--list-templates output missing template %q", name)
+		}
+	}
+	if !containsStr(output, "Available icon templates") {
+		t.Error("expected header 'Available icon templates' in output")
+	}
+}
+
+func TestForge_Prompt(t *testing.T) {
+	resetForgeFlags(t)
+	forgePrompt = true
+
+	output, err := executeForge(t)
+	if err != nil {
+		t.Fatalf("forge --prompt failed: %v", err)
+	}
+
+	if !containsStr(output, "iconforge") {
+		t.Error("expected 'iconforge' in prompt output")
+	}
+	if !containsStr(output, "--template") {
+		t.Error("expected '--template' in prompt output")
+	}
+}
+
+func TestForge_GenerateWithTemplate(t *testing.T) {
+	templates := []string{"shield", "terminal", "gear", "cube", "bolt", "leaf", "wave", "hexagon", "stack"}
+
+	for _, tmpl := range templates {
+		t.Run(tmpl, func(t *testing.T) {
+			resetForgeFlags(t)
+			tmpDir := t.TempDir()
+
+			forgeGenSVG = true
+			forgeAppName = "tmpltest"
+			forgeOutputDir = tmpDir
+			forgeTemplate = tmpl
+			forgeSkipMac = true
+			forgeSkipLinux = true
+
+			_, err := executeForge(t)
+			if err != nil {
+				t.Fatalf("forge --generate --template %s failed: %v", tmpl, err)
+			}
+
+			svgPath := filepath.Join(tmpDir, "tmpltest.svg")
+			if _, err := os.Stat(svgPath); os.IsNotExist(err) {
+				t.Errorf("expected SVG file for template %s", tmpl)
+			}
+		})
+	}
+}
+
+func TestForge_InvalidTemplate(t *testing.T) {
+	resetForgeFlags(t)
+	tmpDir := t.TempDir()
+
+	forgeGenSVG = true
+	forgeAppName = "test"
+	forgeOutputDir = tmpDir
+	forgeTemplate = "nonexistent"
+
+	_, err := executeForge(t)
+	if err == nil {
+		t.Fatal("expected error for invalid template, got nil")
+	}
+	if !containsStr(err.Error(), "nonexistent") {
+		t.Errorf("error should mention the template name, got: %v", err)
+	}
+}
+
+func TestForge_WatchWithGenerate(t *testing.T) {
+	resetForgeFlags(t)
+	tmpDir := t.TempDir()
+
+	forgeGenSVG = true
+	forgeAppName = "watchtest"
+	forgeOutputDir = tmpDir
+	forgeWatch = true
+
+	_, err := executeForge(t)
+	if err == nil {
+		t.Fatal("expected error for --watch with --generate, got nil")
+	}
+	if !containsStr(err.Error(), "cannot use --watch with --generate") {
+		t.Errorf("expected watch/generate conflict error, got: %v", err)
+	}
+}
+
+func TestForge_WatchNoSource(t *testing.T) {
+	resetForgeFlags(t)
+	tmpDir := t.TempDir()
+
+	forgeAppName = "watchtest"
+	forgeOutputDir = tmpDir
+	forgeWatch = true
+
+	_, err := executeForge(t)
+	if err == nil {
+		t.Fatal("expected error for --watch with no source, got nil")
+	}
+}
+
+func TestForge_LinuxOutput(t *testing.T) {
+	resetForgeFlags(t)
+	tmpDir := t.TempDir()
+
+	forgeGenSVG = true
+	forgeAppName = "linuxtest"
+	forgeOutputDir = tmpDir
+	forgeSkipWin = true
+	forgeSkipMac = true
+
+	output, err := executeForge(t)
+	if err != nil {
+		t.Fatalf("forge for linux failed: %v", err)
+	}
+
+	// Verify .desktop file exists
+	desktopPath := filepath.Join(tmpDir, "linux", "linuxtest.desktop")
+	if _, err := os.Stat(desktopPath); os.IsNotExist(err) {
+		t.Error("expected .desktop file to exist")
+	}
+
+	// Verify hicolor structure (linux/icons/hicolor/)
+	hicolorPath := filepath.Join(tmpDir, "linux", "icons", "hicolor")
+	if _, err := os.Stat(hicolorPath); os.IsNotExist(err) {
+		t.Error("expected linux/icons/hicolor/ directory to exist")
+	}
+
+	if !containsStr(output, "Linux") {
+		t.Error("expected 'Linux' in output")
+	}
+}
+
+func TestForge_MacOSOutput(t *testing.T) {
+	resetForgeFlags(t)
+	tmpDir := t.TempDir()
+
+	forgeGenSVG = true
+	forgeAppName = "mactest"
+	forgeOutputDir = tmpDir
+	forgeSkipWin = true
+	forgeSkipLinux = true
+
+	output, err := executeForge(t)
+	if err != nil {
+		t.Fatalf("forge for macos failed: %v", err)
+	}
+
+	// Verify .app bundle
+	appDir := filepath.Join(tmpDir, "macos", "mactest.app")
+	if _, err := os.Stat(appDir); os.IsNotExist(err) {
+		t.Error("expected .app bundle to exist")
+	}
+
+	// Verify Info.plist
+	plistPath := filepath.Join(appDir, "Contents", "Info.plist")
+	if _, err := os.Stat(plistPath); os.IsNotExist(err) {
+		t.Error("expected Info.plist to exist")
+	}
+
+	if !containsStr(output, "macOS") {
+		t.Error("expected 'macOS' in output")
+	}
+}
+
+func TestForge_WindowsOutput(t *testing.T) {
+	resetForgeFlags(t)
+	tmpDir := t.TempDir()
+
+	forgeGenSVG = true
+	forgeAppName = "wintest"
+	forgeOutputDir = tmpDir
+	forgeSkipMac = true
+	forgeSkipLinux = true
+
+	output, err := executeForge(t)
+	if err != nil {
+		t.Fatalf("forge for windows failed: %v", err)
+	}
+
+	// Verify ICO
+	icoPath := filepath.Join(tmpDir, "windows", "icon.ico")
+	if _, err := os.Stat(icoPath); os.IsNotExist(err) {
+		t.Error("expected windows/icon.ico to exist")
+	}
+
+	// Verify versioninfo.json
+	viPath := filepath.Join(tmpDir, "windows", "versioninfo.json")
+	if _, err := os.Stat(viPath); os.IsNotExist(err) {
+		t.Error("expected versioninfo.json to exist")
+	}
+
+	// Verify .syso was generated (winres pure Go — should always succeed)
+	sysoPath := filepath.Join(tmpDir, "windows", "resource_windows_amd64.syso")
+	if _, err := os.Stat(sysoPath); os.IsNotExist(err) {
+		// .syso generation is non-fatal in forge; check output for note
+		if !containsStr(output, "Note:") {
+			t.Error("expected .syso file or generation note in output")
+		}
+	} else {
+		if !containsStr(output, "winres") {
+			t.Error("expected 'winres' in output for .syso generation")
+		}
+	}
+}
+
+func TestForge_FaviconAndIconsetCombined(t *testing.T) {
+	resetForgeFlags(t)
+	tmpDir := t.TempDir()
+
+	forgeGenSVG = true
+	forgeAppName = "combined"
+	forgeOutputDir = tmpDir
+	forgeFavicon = true
+	forgeIconset = true
+
+	_, err := executeForge(t)
+	if err != nil {
+		t.Fatalf("forge --favicon --iconset failed: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(tmpDir, "favicon")); os.IsNotExist(err) {
+		t.Error("expected favicon/ directory")
+	}
+
+	entries, _ := os.ReadDir(filepath.Join(tmpDir, "macos"))
+	foundIconset := false
+	for _, e := range entries {
+		if containsStr(e.Name(), "iconset") {
+			foundIconset = true
+			break
+		}
+	}
+	if !foundIconset {
+		t.Error("expected .iconset in macos/")
+	}
+}
+
+func TestForge_Arch386(t *testing.T) {
+	resetForgeFlags(t)
+	tmpDir := t.TempDir()
+
+	forgeGenSVG = true
+	forgeAppName = "archtest"
+	forgeOutputDir = tmpDir
+	forgeArch = "386"
+	forgeSkipMac = true
+	forgeSkipLinux = true
+
+	_, err := executeForge(t)
+	if err != nil {
+		t.Fatalf("forge --arch 386 failed: %v", err)
+	}
+
+	// .syso generation is non-fatal; just verify the pipeline completed
+	sysoPath := filepath.Join(tmpDir, "windows", "resource_windows_386.syso")
+	if _, err := os.Stat(sysoPath); os.IsNotExist(err) {
+		t.Log("note: .syso with 386 arch not created (non-fatal in forge)")
+	}
+}
+
+func TestForge_CustomMetadata(t *testing.T) {
+	resetForgeFlags(t)
+	tmpDir := t.TempDir()
+
+	forgeGenSVG = true
+	forgeAppName = "metaapp"
+	forgeOutputDir = tmpDir
+	forgeVersion = "2.5.0"
+	forgeCompany = "MetaCorp"
+	forgeCopyright = "Copyright 2026 MetaCorp"
+	forgeBundleID = "com.metacorp.metaapp"
+	forgeSkipLinux = true
+
+	output, err := executeForge(t)
+	if err != nil {
+		t.Fatalf("forge with metadata failed: %v", err)
+	}
+
+	// Verify versioninfo.json has the metadata
+	viPath := filepath.Join(tmpDir, "windows", "versioninfo.json")
+	data, err := os.ReadFile(viPath)
+	if err != nil {
+		t.Fatalf("read versioninfo.json: %v", err)
+	}
+	viStr := string(data)
+	if !containsStr(viStr, "MetaCorp") {
+		t.Error("versioninfo.json missing company name")
+	}
+	if !containsStr(viStr, "2.5.0") {
+		t.Error("versioninfo.json missing version")
+	}
+
+	if output == "" {
+		t.Error("expected non-empty output")
+	}
+}
+
+func TestForge_Preview(t *testing.T) {
+	resetForgeFlags(t)
+	tmpDir := t.TempDir()
+
+	forgeGenSVG = true
+	forgeAppName = "previewtest"
+	forgeOutputDir = tmpDir
+	forgePreview = true
+	forgePreviewSize = 16
+	forgeSkipWin = true
+	forgeSkipMac = true
+	forgeSkipLinux = true
+
+	output, err := executeForge(t)
+	if err != nil {
+		t.Fatalf("forge --preview failed: %v", err)
+	}
+
+	// ANSI preview should contain escape codes
+	if !containsStr(output, "\033[") {
+		t.Error("expected ANSI escape codes in preview output")
+	}
+	if !containsStr(output, "Forge complete!") {
+		t.Error("expected 'Forge complete!' after preview")
+	}
+}
+
+func TestPreviewIcon(t *testing.T) {
+	// Create a small test image
+	img := image.NewRGBA(image.Rect(0, 0, 64, 64))
+	for y := 0; y < 64; y++ {
+		for x := 0; x < 64; x++ {
+			img.Pix[(y*64+x)*4+0] = uint8(x * 4) // R
+			img.Pix[(y*64+x)*4+1] = uint8(y * 4) // G
+			img.Pix[(y*64+x)*4+2] = 128           // B
+			img.Pix[(y*64+x)*4+3] = 255           // A
+		}
+	}
+
+	buf := new(bytes.Buffer)
+	previewIcon(buf, img, 16)
+
+	output := buf.String()
+	if output == "" {
+		t.Error("expected non-empty preview output")
+	}
+	if !containsStr(output, "\033[") {
+		t.Error("expected ANSI escape codes")
+	}
+	if !containsStr(output, "▀") {
+		t.Error("expected half-block characters in preview")
+	}
+}
+
+func TestPreviewIcon_Transparent(t *testing.T) {
+	// Image with transparent pixels
+	img := image.NewRGBA(image.Rect(0, 0, 16, 16))
+
+	buf := new(bytes.Buffer)
+	previewIcon(buf, img, 8)
+
+	output := buf.String()
+	if output == "" {
+		t.Error("expected non-empty output even for transparent image")
 	}
 }
 

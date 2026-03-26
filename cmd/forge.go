@@ -40,7 +40,12 @@ var (
 	forgeAutoDetect bool
 	forgeIconset    bool
 	forgeFavicon    bool
-	forgeWatch      bool
+	forgeWatch         bool
+	forgeTemplate      string
+	forgeListTemplates bool
+	forgePrompt        bool
+	forgePreview       bool
+	forgePreviewSize   int
 )
 
 // Standard icon sizes for export
@@ -89,9 +94,30 @@ func init() {
 	forgeCmd.Flags().BoolVar(&forgeIconset, "iconset", false, "Also generate .iconset directory for macOS iconutil")
 	forgeCmd.Flags().BoolVar(&forgeFavicon, "favicon", false, "Also generate web-standard favicons")
 	forgeCmd.Flags().BoolVar(&forgeWatch, "watch", false, "Watch source file and auto-regenerate on changes")
+	forgeCmd.Flags().StringVar(&forgeTemplate, "template", "forge", "Icon template to use with --generate (see --list-templates)")
+	forgeCmd.Flags().BoolVar(&forgeListTemplates, "list-templates", false, "List available icon templates and exit")
+	forgeCmd.Flags().BoolVar(&forgePrompt, "prompt", false, "Output structured AI prompt for interactive icon creation with Claude Code")
+	forgeCmd.Flags().BoolVar(&forgePreview, "preview", false, "Show a terminal preview of the generated icon")
+	forgeCmd.Flags().IntVar(&forgePreviewSize, "preview-size", 32, "Preview width in columns (default 32)")
 }
 
 func runForge(cmd *cobra.Command, _ []string) error {
+	if forgePrompt {
+		return printAIPrompt(cmd)
+	}
+
+	if forgeListTemplates {
+		templates := generator.ListTemplates()
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Available icon templates:\n\n")
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  %-12s  %s\n", "NAME", "DESCRIPTION")
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  %-12s  %s\n", "----", "-----------")
+		for _, t := range templates {
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  %-12s  %s\n", t.Name, t.Description)
+		}
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\nUsage: iconforge forge --generate --template <name>\n")
+		return nil
+	}
+
 	if err := runForgePipeline(cmd); err != nil {
 		return err
 	}
@@ -223,14 +249,19 @@ func runForgePipeline(cmd *cobra.Command) error {
 			Accent:    forgeAccent,
 		}
 
-		svgPath = filepath.Join(forgeOutputDir, appName+".svg")
-		logger.Info("generating SVG icon", "path", svgPath)
+		tmpl, err := generator.GetTemplate(forgeTemplate)
+		if err != nil {
+			return err
+		}
 
-		if err := generator.GenerateIconSVG(svgPath, appName, palette); err != nil {
+		svgPath = filepath.Join(forgeOutputDir, appName+".svg")
+		logger.Info("generating SVG icon", "path", svgPath, "template", forgeTemplate)
+
+		if err := tmpl.GenerateFn(svgPath, appName, palette); err != nil {
 			return fmt.Errorf("generate svg: %w", err)
 		}
 
-		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Generated SVG: %s\n", svgPath)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Generated SVG: %s (template: %s)\n", svgPath, forgeTemplate)
 	}
 
 	var images map[int]*image.RGBA
@@ -318,6 +349,21 @@ func runForgePipeline(cmd *cobra.Command) error {
 		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Favicons: %s\n", faviconDir)
 	}
 
+	// Terminal preview
+	if forgePreview {
+		// Use the largest available image for best quality
+		var previewImg *image.RGBA
+		for _, size := range []int{512, 256, 128, 64} {
+			if img, ok := images[size]; ok {
+				previewImg = img
+				break
+			}
+		}
+		if previewImg != nil {
+			previewIcon(cmd.OutOrStdout(), previewImg, forgePreviewSize)
+		}
+	}
+
 	_, _ = fmt.Fprintln(cmd.OutOrStdout(), "\nForge complete!")
 	return nil
 }
@@ -359,20 +405,15 @@ func forgeWindows(cmd *cobra.Command, appName string, images map[int]*image.RGBA
 	}
 	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Windows app manifest: %s\n", manifestPath)
 
-	// Generate .syso: try goversioninfo (pure Go) first, fall back to rsrc
-	sysoPath, gviErr := platform.GenerateSysoGoversioninfo(cfg, forgeArch)
-	if gviErr == nil {
-		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Windows .syso (goversioninfo): %s\n", sysoPath)
+	// Generate .syso using winres (pure Go, no external tools)
+	// Use absolute ICO path for .syso generation (cfg.ICOPath is relative for JSON portability)
+	sysoCfg := cfg
+	sysoCfg.ICOPath = icoPath
+	sysoPath, err := platform.GenerateSysoWinres(sysoCfg, forgeArch)
+	if err != nil {
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Note: .syso generation failed: %v\n", err)
 	} else {
-		// Fall back to rsrc (external tool)
-		sysoPath = filepath.Join(winDir, "rsrc_windows_"+forgeArch+".syso")
-		if err := platform.GenerateSyso(icoPath, sysoPath, forgeArch); err != nil {
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Note: .syso generation failed\n")
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  goversioninfo: %v\n", gviErr)
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  rsrc: %v\n", err)
-		} else {
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Windows .syso (rsrc): %s\n", sysoPath)
-		}
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Windows .syso (winres): %s\n", sysoPath)
 	}
 
 	return nil
@@ -436,6 +477,94 @@ func forgeLinux(cmd *cobra.Command, appName string, images map[int]*image.RGBA) 
 
 	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Linux .desktop: %s/%s.desktop\n", linuxDir, appName)
 	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Linux icons: %s/icons/hicolor/\n", linuxDir)
+
+	return nil
+}
+
+func printAIPrompt(cmd *cobra.Command) error {
+	templates := generator.ListTemplates()
+
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), `# IconForge — Interactive Icon Creation Prompt
+
+You are helping the user create an application icon using IconForge.
+IconForge generates production-ready icons for all platforms (Windows ICO + .syso,
+macOS ICNS + .app, Linux .desktop + hicolor) from a single SVG source.
+
+## Available Templates
+
+`)
+
+	for _, t := range templates {
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "- **%s**: %s\n", t.Name, t.Description)
+	}
+
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), `
+## Interactive Workflow
+
+Ask the user these questions to build the iconforge command:
+
+1. **Project name** — What is the application name? (used for filenames and metadata)
+2. **Template** — Show the template list above and let the user pick one.
+   Use Claude Code's AskUserQuestion tool with previews describing each template visually.
+3. **Colors** — Ask for brand colors or suggest a palette:
+   - Primary color (hex) — background gradient start
+   - Secondary color (hex) — background gradient end
+   - Accent color (hex) — highlight/feature color
+4. **Output directory** — Where to write icons (default: build/icons)
+5. **Platforms** — Which platforms? (default: all). Options: --skip-windows, --skip-macos, --skip-linux
+6. **Extras** — Favicons (--favicon)? Framework auto-detect (--auto-detect)? File watching (--watch)?
+
+## Command Builder
+
+After gathering answers, construct and run:
+
+` + "```" + `bash
+iconforge forge --generate \
+  --template <template> \
+  --name <app-name> \
+  --primary "<primary-hex>" \
+  --secondary "<secondary-hex>" \
+  --accent "<accent-hex>" \
+  --output <output-dir>
+` + "```" + `
+
+## Post-Generation
+
+After running the command:
+1. Read the generated SVG to preview it
+2. Read a generated PNG (e.g., build/icons/png/256x256.png) to show the user the result
+3. If the user wants changes:
+   - Edit the SVG directly and re-run: iconforge forge --svg <path> --name <name> --output <dir>
+   - Or try a different template
+4. The SVG can be hand-edited for custom designs — just re-run forge with --svg to regenerate all assets
+
+## SVG Editing Rules
+
+If editing the SVG directly, these elements are supported by the rasterizer:
+- rect, circle, ellipse, polygon, polyline, path, line
+- linearGradient (NOT radialGradient)
+- fill, stroke, opacity attributes
+- NO: filter, text, clipPath, mask, use, symbol, radialGradient
+
+## Output Files
+
+` + "```" + `
+build/icons/
+├── <name>.svg          # Source SVG
+├── png/                # Multi-resolution PNGs (16-1024px)
+├── windows/
+│   ├── icon.ico        # Windows icon
+│   ├── versioninfo.json
+│   ├── <name>.exe.manifest
+│   └── rsrc_windows_amd64.syso  # Embeddable resource
+├── macos/
+│   ├── icon.icns       # macOS icon
+│   └── <name>.app/     # App bundle with Info.plist
+└── linux/
+    ├── <name>.desktop   # Desktop entry
+    └── icons/hicolor/   # Theme icons
+` + "```" + `
+`)
 
 	return nil
 }

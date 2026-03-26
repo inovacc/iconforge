@@ -65,3 +65,14 @@
   - [x] CI/CD fixed (Go 1.25, variable shadowing fix)
   - [x] Tag and release v1.0.0
 - **Test Coverage:** ~85% (svg 95.7%, platform 94.8%, detect 86%, generator 85.7%, favicon 85.3%, icon 82%, cmd 77.9%)
+
+## v1.1.0 - Internalized Dependencies & Templates
+- **Target:** 2026-03-26
+- **Status:** Complete (unreleased)
+- **Goals:**
+  - [x] Internalize tc-hib/winres library (replace goversioninfo + rsrc)
+  - [x] 10 built-in SVG icon templates with registry
+  - [x] Terminal icon preview (--preview flag)
+  - [x] cmd/ coverage boosted to 80.3%
+  - [x] Generator coverage boosted to 94.6%
+- **Test Coverage:** ~87% (svg 95.7%, generator 94.6%, detect 86%, favicon 85.3%, platform 83.4%, icon 82%, cmd 80.3%) — total 81.5%

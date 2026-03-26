@@ -1,0 +1,52 @@
+{
+  "module": "github.com/tc-hib/winres",
+  "version": "v0.3.1",
+  "upstream_commit": "bae858ad9c32978d161a2e37a46403b5a20fec76",
+  "internalized_at": "2026-03-26T00:00:00Z",
+  "local_package": "pkg/winres",
+  "local_module": "github.com/inovacc/iconforge",
+  "license": "ISC",
+  "strategy": "full_copy",
+  "files": [
+    {"upstream": "coff.go", "local": "pkg/winres/coff.go", "copied": true},
+    {"upstream": "cursor.go", "local": "pkg/winres/cursor.go", "copied": true},
+    {"upstream": "doc.go", "local": "pkg/winres/doc.go", "copied": true},
+    {"upstream": "errors.go", "local": "pkg/winres/errors.go", "copied": true},
+    {"upstream": "exe.go", "local": "pkg/winres/exe.go", "copied": true},
+    {"upstream": "icon.go", "local": "pkg/winres/icon.go", "copied": true},
+    {"upstream": "id.go", "local": "pkg/winres/id.go", "copied": true},
+    {"upstream": "manifest.go", "local": "pkg/winres/manifest.go", "copied": true},
+    {"upstream": "pesum.go", "local": "pkg/winres/pesum.go", "copied": true},
+    {"upstream": "reader.go", "local": "pkg/winres/reader.go", "copied": true},
+    {"upstream": "rsrc.go", "local": "pkg/winres/rsrc.go", "copied": true},
+    {"upstream": "winres.go", "local": "pkg/winres/winres.go", "copied": true},
+    {"upstream": "version/binary.go", "local": "pkg/winres/version/binary.go", "copied": true},
+    {"upstream": "version/errors.go", "local": "pkg/winres/version/errors.go", "copied": true},
+    {"upstream": "version/json.go", "local": "pkg/winres/version/json.go", "copied": true},
+    {"upstream": "version/timestamp.go", "local": "pkg/winres/version/timestamp.go", "copied": true},
+    {"upstream": "version/version.go", "local": "pkg/winres/version/version.go", "copied": true},
+    {"upstream": "LICENSE", "local": "pkg/winres/LICENSE", "copied": true}
+  ],
+  "import_rewrites": {
+    "github.com/tc-hib/winres": "github.com/inovacc/iconforge/pkg/winres",
+    "github.com/tc-hib/winres/version": "github.com/inovacc/iconforge/pkg/winres/version"
+  },
+  "excluded_paths": [
+    "coff_test.go",
+    "cursor_test.go",
+    "helper_test.go",
+    "icon_test.go",
+    "manifest_test.go",
+    "pesum_test.go",
+    "rsrc_test.go",
+    "winres_test.go",
+    "version/binary_test.go",
+    "version/json_test.go",
+    "version/version_test.go",
+    "go.mod",
+    "go.sum",
+    "README.md",
+    ".github/"
+  ],
+  "local_modifications": []
+}

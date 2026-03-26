@@ -14,9 +14,9 @@
 ### Phase 2: Platform Icon Generators [COMPLETE]
 - [x] ICO encoder (Windows, PNG-compressed multi-size)
 - [x] ICNS encoder (macOS, Apple OSType codes)
-- [x] Windows versioninfo.json (goversioninfo compatible)
+- [x] Windows versioninfo.json generation
 - [x] Windows .exe.manifest generation (DPI-aware)
-- [x] Windows .syso generation via rsrc
+- [x] Windows .syso generation via internalized winres (pure Go)
 - [x] macOS .app bundle with Info.plist
 - [x] Linux .desktop file (freedesktop spec)
 - [x] Linux hicolor icon theme structure
@@ -47,21 +47,21 @@
 - [x] CI/CD pipeline validation (Go 1.25 workflows)
 - [x] Documentation completion (README updated)
 - [x] --watch flag for auto-regeneration
-- [x] goversioninfo pure-Go .syso generation
+- [x] Pure-Go .syso generation via internalized winres library (replaced goversioninfo)
 - [x] Performance benchmarks
 - [x] cmd/ coverage boosted to 77.9%
 - [x] v1.0.0 release
 
 ## Test Coverage
 
-**Current:** ~85% | **Target:** 80% (met)
+**Current:** ~87% | **Target:** 80% (met)
 
 | Package | Coverage | Status |
 |---------|----------|--------|
 | internal/svg | 95.7% | Excellent |
-| internal/platform | 94.8% | Excellent |
+| internal/generator | 94.6% | Excellent |
 | internal/detect | 86.0% | Good |
-| internal/generator | 85.7% | Good |
 | internal/favicon | 85.3% | Good |
+| internal/platform | 83.4% | Good |
 | internal/icon | 82.0% | Good |
-| cmd | 77.9% | Good |
+| cmd | 80.3% | Good |

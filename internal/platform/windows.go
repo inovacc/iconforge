@@ -4,16 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 
-	"github.com/josephspurrier/goversioninfo"
+	"github.com/inovacc/iconforge/pkg/winres"
+	"github.com/inovacc/iconforge/pkg/winres/version"
 )
 
-// VersionInfo represents the Windows VERSIONINFO resource structure
-// compatible with goversioninfo's versioninfo.json format.
+// VersionInfo represents the Windows VERSIONINFO resource structure.
 type VersionInfo struct {
-	FixedFileInfo FixedFileInfo `json:"FixedFileInfo"`
+	FixedFileInfo  FixedFileInfo  `json:"FixedFileInfo"`
 	StringFileInfo StringFileInfo `json:"StringFileInfo"`
 	VarFileInfo    VarFileInfo    `json:"VarFileInfo"`
 	IconPath       string         `json:"IconPath"`
@@ -77,7 +76,7 @@ type WindowsConfig struct {
 	OutputDir   string
 }
 
-// WriteVersionInfo generates a versioninfo.json file compatible with goversioninfo.
+// WriteVersionInfo generates a versioninfo.json file.
 func WriteVersionInfo(cfg WindowsConfig) (string, error) {
 	major, minor, patch := parseVersion(cfg.Version)
 
@@ -123,129 +122,110 @@ func WriteVersionInfo(cfg WindowsConfig) (string, error) {
 	return outPath, nil
 }
 
-// GenerateSyso generates a .syso resource file using rsrc.
-// The .syso file is automatically linked by the Go linker during build.
-func GenerateSyso(icoPath, outputPath, arch string) error {
-	if arch == "" {
-		arch = "amd64"
-	}
-
-	args := []string{
-		"-ico", icoPath,
-		"-o", outputPath,
-		"-arch", arch,
-	}
-
-	cmd := exec.Command("rsrc", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("rsrc failed: %w", err)
-	}
-
-	return nil
-}
-
-// GenerateSysoGoversioninfo generates a .syso resource file using the
-// goversioninfo library (pure Go, no external tool required).
+// GenerateSysoWinres generates a .syso resource file using the internalized
+// winres library (pure Go, no external tool required).
 // It builds version info, icon, and manifest directly from the WindowsConfig.
-func GenerateSysoGoversioninfo(cfg WindowsConfig, arch string) (string, error) {
+func GenerateSysoWinres(cfg WindowsConfig, arch string) (string, error) {
 	if arch == "" {
 		arch = "amd64"
 	}
 
-	major, minor, patch := parseVersion(cfg.Version)
+	rs := &winres.ResourceSet{}
 
-	vi := &goversioninfo.VersionInfo{}
-	vi.FixedFileInfo.FileVersion.Major = major
-	vi.FixedFileInfo.FileVersion.Minor = minor
-	vi.FixedFileInfo.FileVersion.Patch = patch
-	vi.FixedFileInfo.FileVersion.Build = 0
-	vi.FixedFileInfo.ProductVersion.Major = major
-	vi.FixedFileInfo.ProductVersion.Minor = minor
-	vi.FixedFileInfo.ProductVersion.Patch = patch
-	vi.FixedFileInfo.ProductVersion.Build = 0
-	vi.FixedFileInfo.FileFlagsMask = "3f"
-	vi.FixedFileInfo.FileFlags = "00"
-	vi.FixedFileInfo.FileOS = "040004"
-	vi.FixedFileInfo.FileType = "01"
-	vi.FixedFileInfo.FileSubType = "00"
+	// Set version info
+	vi := version.Info{}
+	vi.Set(version.LangDefault, version.FileDescription, cfg.Description)
+	vi.Set(version.LangDefault, version.ProductName, cfg.AppName)
+	vi.Set(version.LangDefault, version.CompanyName, cfg.Company)
+	vi.Set(version.LangDefault, version.LegalCopyright, cfg.Copyright)
+	vi.Set(version.LangDefault, version.InternalName, cfg.AppName)
+	vi.Set(version.LangDefault, version.OriginalFilename, cfg.AppName+".exe")
+	vi.Set(version.LangDefault, version.FileVersion, cfg.Version)
+	vi.Set(version.LangDefault, version.ProductVersion, cfg.Version)
+	vi.SetFileVersion(cfg.Version)
+	vi.SetProductVersion(cfg.Version)
+	rs.SetVersionInfo(vi)
 
-	vi.StringFileInfo.CompanyName = cfg.Company
-	vi.StringFileInfo.FileDescription = cfg.Description
-	vi.StringFileInfo.FileVersion = cfg.Version
-	vi.StringFileInfo.InternalName = cfg.AppName
-	vi.StringFileInfo.LegalCopyright = cfg.Copyright
-	vi.StringFileInfo.OriginalFilename = cfg.AppName + ".exe"
-	vi.StringFileInfo.ProductName = cfg.AppName
-	vi.StringFileInfo.ProductVersion = cfg.Version
+	// Set icon if provided
+	if cfg.ICOPath != "" {
+		if err := setIconFromFile(rs, cfg.ICOPath); err != nil {
+			return "", fmt.Errorf("winres set icon: %w", err)
+		}
+	}
 
-	// Set the icon path (relative to where the .syso will be written)
-	vi.IconPath = cfg.ICOPath
-
-	// Generate a manifest with DPI awareness and asInvoker
+	// Set manifest with DPI awareness
 	manifestPath := filepath.Join(cfg.OutputDir, cfg.AppName+".exe.manifest")
 	if _, err := os.Stat(manifestPath); err == nil {
-		vi.ManifestPath = manifestPath
+		rs.SetManifest(winres.AppManifest{
+			DPIAwareness:        winres.DPIPerMonitorV2,
+			UseCommonControlsV6: true,
+		})
+	} else {
+		rs.SetManifest(winres.AppManifest{})
 	}
 
-	vi.Build()
-	vi.Walk()
-
+	// Write .syso object file
 	outputPath := filepath.Join(cfg.OutputDir, "resource_windows_"+arch+".syso")
-	if err := vi.WriteSyso(outputPath, arch); err != nil {
-		return "", fmt.Errorf("goversioninfo WriteSyso: %w", err)
+	f, err := os.Create(outputPath)
+	if err != nil {
+		return "", fmt.Errorf("create syso: %w", err)
+	}
+	defer func() { _ = f.Close() }()
+
+	if err := rs.WriteObject(f, winres.Arch(arch)); err != nil {
+		return "", fmt.Errorf("winres WriteObject: %w", err)
+	}
+
+	if err := f.Close(); err != nil {
+		return "", fmt.Errorf("close syso: %w", err)
 	}
 
 	return outputPath, nil
 }
 
-// GenerateSysoFromJSON generates a .syso resource file from a versioninfo.json
-// file using the goversioninfo library (pure Go, no external tool required).
-func GenerateSysoFromJSON(versionInfoPath, outputPath, arch string) error {
+// GenerateSysoFromICO generates a .syso resource file from an ICO file
+// using the internalized winres library. This is the simple path that only
+// embeds an icon without version info.
+func GenerateSysoFromICO(icoPath, outputPath, arch string) error {
 	if arch == "" {
 		arch = "amd64"
 	}
 
-	data, err := os.ReadFile(versionInfoPath)
+	rs := &winres.ResourceSet{}
+
+	if err := setIconFromFile(rs, icoPath); err != nil {
+		return fmt.Errorf("winres set icon: %w", err)
+	}
+
+	rs.SetManifest(winres.AppManifest{})
+
+	f, err := os.Create(outputPath)
 	if err != nil {
-		return fmt.Errorf("read versioninfo.json: %w", err)
+		return fmt.Errorf("create syso: %w", err)
+	}
+	defer func() { _ = f.Close() }()
+
+	if err := rs.WriteObject(f, winres.Arch(arch)); err != nil {
+		return fmt.Errorf("winres WriteObject: %w", err)
 	}
 
-	vi := &goversioninfo.VersionInfo{}
-	if err := vi.ParseJSON(data); err != nil {
-		return fmt.Errorf("parse versioninfo.json: %w", err)
-	}
-
-	vi.Build()
-	vi.Walk()
-
-	if err := vi.WriteSyso(outputPath, arch); err != nil {
-		return fmt.Errorf("goversioninfo WriteSyso: %w", err)
-	}
-
-	return nil
+	return f.Close()
 }
 
-// GenerateSysoWithGovernVersionInfo generates a .syso using the external
-// goversioninfo CLI tool. Deprecated: use GenerateSysoGoversioninfo or
-// GenerateSysoFromJSON instead, which use the library directly.
-func GenerateSysoWithGovernVersionInfo(versionInfoPath, outputPath string) error {
-	args := []string{
-		"-o", outputPath,
-		versionInfoPath,
+// setIconFromFile loads an ICO file and sets it as the application icon.
+func setIconFromFile(rs *winres.ResourceSet, icoPath string) error {
+	f, err := os.Open(icoPath)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+
+	icon, err := winres.LoadICO(f)
+	if err != nil {
+		return fmt.Errorf("load ICO: %w", err)
 	}
 
-	cmd := exec.Command("goversioninfo", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("goversioninfo failed: %w", err)
-	}
-
-	return nil
+	return rs.SetIcon(winres.ID(1), icon)
 }
 
 // WriteManifest generates a Windows application manifest XML file.
@@ -293,7 +273,6 @@ func WriteManifest(appName, outputDir string) (string, error) {
 func parseVersion(version string) (int, int, int) {
 	var major, minor, patch int
 	_, _ = fmt.Sscanf(version, "%d.%d.%d", &major, &minor, &patch)
-	// Also try with 'v' prefix
 	if major == 0 && minor == 0 && patch == 0 {
 		_, _ = fmt.Sscanf(version, "v%d.%d.%d", &major, &minor, &patch)
 	}

@@ -68,6 +68,9 @@ coverage.html
 # Scripts
 .scripts/
 
+# Temporary
+.tmp/
+
 # Generated icon assets
 *.syso
 build/
